@@ -1,0 +1,40 @@
+---
+- name: Deploy Keyshift
+  hosts: keyshift
+  become: true
+
+  roles:
+    - common
+    - docker
+
+  tasks:
+    - name: Create app directory
+      file:
+        path: /opt/keyshift
+        state: directory
+        mode: '0755'
+
+    - name: Download release tar
+      get_url:
+        url: https://github.com/helloworld44-89/KeyShift/raw/refs/heads/main/keyshift.tar.xz
+        dest: /tmp/keyshift.tar.gz
+        mode: '0644'
+
+    - name: Extract tar
+      unarchive:
+        src: /tmp/keyshift.tar.gz
+        dest: /opt/keyshift
+        remote_src: true
+        extra_opts: [--strip-components=1]
+
+    - name: Copy .env file
+      copy:
+        src: "{{ playbook_dir }}/keyshift.env"
+        dest: /opt/keyshift/.env
+        mode: '0600'
+
+    - name: Pull and deploy with Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: /opt/keyshift
+        pull: always
+        state: present

@@ -1,0 +1,32 @@
+---
+- name: Install Docker dependencies
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+
+- name: Add Docker GPG key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker repo
+  apt_repository:
+    repo: deb https://download.docker.com/linux/ubuntu noble stable
+    state: present
+
+- name: Install Docker and Compose plugin
+  apt:
+    name:
+      - docker-ce
+      - docker-compose-plugin
+    state: present
+
+- name: Add ubuntu user to docker group
+  user:
+    name: ubuntu
+    groups: docker
+    append: true

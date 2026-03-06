@@ -1,0 +1,77 @@
+- name: Deploy Keyshift
+  hosts: docker_vms
+  become: true
+
+  vars:
+    image: ghcr.io/helloworld44-89/keyshift:latest
+    app_dir: /opt/keyshift
+    tar_url: https://github.com/helloWorld44-89/KeyShift/raw/refs/heads/main/keyshift.tar.xz
+
+  tasks:
+    - name: Install Docker dependencies
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: true
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repo
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu noble stable
+        state: present
+
+    - name: Install Docker and Compose plugin
+      apt:
+        name:
+          - docker-ce
+          - docker-compose-plugin
+        state: present
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: true
+
+    - name: Create app directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Download release tar
+      get_url:
+        url: "{{ tar_url }}"
+        dest: /tmp/keyshift.tar.gz
+        mode: '0644'
+
+    - name: Extract tar
+      unarchive:
+        src: /tmp/keyshift.tar.gz
+        dest: "{{ app_dir }}"
+        remote_src: true
+        extra_opts: [--strip-components=1]
+
+    - name: Copy .env file to VM
+      copy:
+        src: "{{ playbook_dir }}/.env"
+        dest: "{{ app_dir }}/.env"
+        mode: '0600'
+
+    - name: Pull latest image
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}"
+        pull: always
+
+    - name: Deploy with Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}"
+        state: present

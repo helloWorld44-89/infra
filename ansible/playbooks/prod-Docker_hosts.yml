@@ -1,0 +1,130 @@
+- name: Configure Prod Docker Servers
+  hosts: prod_Docker
+  become: true
+
+  roles:
+    - common
+    - docker
+    - cockpit
+
+  tasks:
+    - name: Set timezone
+      community.general.timezone:
+        name: America/Chicago
+    
+    - name: Update and upgrade all packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+        cache_valid_time: 3600
+
+    - name: Install unattended-upgrades
+      ansible.builtin.apt:
+        name: unattended-upgrades
+        state: present
+
+    - name: Configure unattended-upgrades
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+
+    - name: Install qemu guest agent
+      ansible.builtin.apt:
+        name: qemu-guest-agent
+        state: present
+
+    - name: Start and enable qemu guest agent
+      ansible.builtin.service:
+        name: qemu-guest-agent
+        state: started
+        enabled: true    
+
+    - name: Disable default MOTD scripts
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: '0644'
+      loop:
+        - /etc/update-motd.d/10-help-text
+        - /etc/update-motd.d/50-motd-news
+
+    - name: Configure dynamic MOTD script
+      ansible.builtin.copy:
+        dest: /etc/update-motd.d/01-custom
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          echo ""
+          echo "  Hostname : $(hostname)"
+          echo "  IP       : $(hostname -I | awk '{print $1}')"
+          echo "  Uptime   : $(uptime -p)"
+          echo "  CPU Load : $(cut -d ' ' -f1 /proc/loadavg)"
+          echo "  Memory   : $(free -h | awk '/^Mem/ {print $3 "/" $2}')"
+          echo "  Disk     : $(df -h / | awk 'NR==2 {print $3 "/" $2 " (" $5 " used)"}')"
+          echo ""
+          echo "**************This is a production device in the Conder Home. Unauthorized Access is Prohibited!**************"
+
+    - name: Create node_exporter directory
+      file:
+        path: "~/monitoring"
+        state: directory
+        mode: "0755"
+
+    - name: Write docker-compose.yml
+      copy:
+        dest: "~/monitoring/docker-compose.yml"
+        mode: "0644"
+        content: |
+          version: '3.8'
+
+          services:
+            node_exporter:
+              image: prom/node-exporter:latest
+              container_name: node_exporter
+              restart: unless-stopped
+              pid: host
+              network_mode: host
+              volumes:
+                - /proc:/host/proc:ro
+                - /sys:/host/sys:ro
+                - /:/rootfs:ro
+              command:
+                - '--path.procfs=/host/proc'
+                - '--path.sysfs=/host/sys'
+                - '--path.rootfs=/rootfs'
+                - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+                - '--web.listen-address=:9100' 
+            cadvisor:
+              image: gcr.io/cadvisor/cadvisor:latest
+              container_name: cadvisor
+              restart: unless-stopped
+              privileged: true
+              ports:
+                - "9191:8080"
+              devices:
+                - /dev/kmsg
+              volumes:
+                - /:/rootfs:ro
+                - /var/run:/var/run:ro
+                - /sys:/sys:ro
+                - /var/lib/docker:/var/lib/docker:ro
+                - /dev/disk/:/dev/disk:ro
+
+    - name: Pull node_exporter image
+      community.docker.docker_compose_v2_pull:
+        project_src: "~/monitoring"
+
+    - name: Start node_exporter
+      community.docker.docker_compose_v2:
+        project_src: "~/monitoring"
+        state: present
+
+    - name: Verify node_exporter is reachable
+      uri:
+        url: http://localhost:9191/metrics
+        status_code: 200
+      register: ne_health
+      retries: 5
+      delay: 3
+      until: ne_health.status == 200

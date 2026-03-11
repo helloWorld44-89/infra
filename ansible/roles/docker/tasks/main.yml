@@ -1,4 +1,11 @@
 ---
+- name: Check if Docker is already installed
+  command: docker --version
+  register: docker_installed
+  ignore_errors: true
+  changed_when: false
+
+
 - name: Install Docker dependencies
   apt:
     name:
@@ -7,16 +14,22 @@
       - curl
       - gnupg
     state: present
+  when:
+    - docker_installed.rc != 0 
 
 - name: Add Docker GPG key
   apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     state: present
+  when:
+  - docker_installed.rc != 0 
 
 - name: Add Docker repo
   apt_repository:
     repo: deb https://download.docker.com/linux/ubuntu noble stable
     state: present
+  when:
+    - docker_installed.rc != 0 
 
 - name: Install Docker and Compose plugin
   apt:
@@ -24,9 +37,13 @@
       - docker-ce
       - docker-compose-plugin
     state: present
+  when:
+    - docker_installed.rc != 0 
 
 - name: Add ubuntu user to docker group
   user:
-    name: ubuntu
+    name: REDACTED
     groups: docker
     append: true
+  when:
+  - docker_installed.rc != 0 

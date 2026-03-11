@@ -11,7 +11,12 @@ variable "vm_count" {
 
 variable "vm_ip" {
   description = "Static IP with CIDR e.g. 192.168.5.44/24"
-  type        = string
+  type        = list(string)
+}
+
+variable "prox_nodes" {
+  description = "List of the noes in the cluster"
+  type        = list(string)
 }
 
 variable "vm_gateway" {
@@ -42,10 +47,10 @@ variable "vm_disk_size" {
   default     = 24
 }
 
-variable "prox_node" {
-  description = "Proxmox node name"
-  type        = string
-  default     = "toothless"
+variable "template_id" {
+  description = "Proxmox template VM ID to clone"
+  type        = number
+  default     = 9000
 }
 
 variable "datastore" {

@@ -1,0 +1,73 @@
+- name: Configure Prod Docker Servers
+  hosts: dockerDev
+  become: true
+
+  roles:
+    - common
+    - docker
+    - cockpit
+
+  tasks:
+    - name: Set timezone
+      community.general.timezone:
+        name: America/Chicago
+    
+    - name: Update and upgrade all packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+        cache_valid_time: 3600
+
+    - name: Install unattended-upgrades
+      ansible.builtin.apt:
+        name: unattended-upgrades
+        state: present
+
+    - name: Configure unattended-upgrades
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+
+    - name: Install qemu guest agent
+      ansible.builtin.apt:
+        name: qemu-guest-agent
+        state: present
+
+    - name: Start and enable qemu guest agent
+      ansible.builtin.service:
+        name: qemu-guest-agent
+        state: started
+        enabled: true    
+
+    - name: Disable default MOTD scripts
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: '0644'
+      loop:
+        - /etc/update-motd.d/10-help-text
+        - /etc/update-motd.d/50-motd-news
+
+    - name: Configure dynamic MOTD script
+      ansible.builtin.copy:
+        dest: /etc/update-motd.d/01-custom
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          echo ""
+          echo "  Hostname : $(hostname)"
+          echo "  IP       : $(hostname -I | awk '{print $1}')"
+          echo "  Uptime   : $(uptime -p)"
+          echo "  CPU Load : $(cut -d ' ' -f1 /proc/loadavg)"
+          echo "  Memory   : $(free -h | awk '/^Mem/ {print $3 "/" $2}')"
+          echo "  Disk     : $(df -h / | awk 'NR==2 {print $3 "/" $2 " (" $5 " used)"}')"
+          echo ""
+          echo "**************This is a production device in the Conder Home. Unauthorized Access is Prohibited!**************"
+
+    - name: Reboot the VM
+      ansible.builtin.reboot:
+        reboot_timeout: 300       
+        pre_reboot_delay: 5       
+        post_reboot_delay: 15     
+        test_command: whoami      

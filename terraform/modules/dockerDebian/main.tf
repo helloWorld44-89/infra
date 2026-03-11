@@ -7,13 +7,13 @@ terraform {
   }
 }
 
-resource "proxmox_virtual_environment_download_file" "ubuntu_cloud_image" {
+resource "proxmox_virtual_environment_download_file" "debian_cloud_image" {
   count        = var.vm_count
   content_type = "import"
   datastore_id = "local"
   node_name    = var.prox_node
-  url          = "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
-  file_name    = "noble-server-cloudimg-amd64.qcow2"
+  url          = "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-amd64.qcow2"
+  file_name    = "debian-12-generic-amd64.qcow2"
   overwrite         = false    
   overwrite_unmanaged = true
 }
@@ -73,6 +73,6 @@ resource "proxmox_virtual_environment_vm" "vm" {
     enabled = true
   }
   stop_on_destroy = true
-  timeout_create = 20
+  timeout_create = 60
   on_boot = true
 }

@@ -1,0 +1,20 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install Cockpit
+  apt:
+    name:
+      - cockpit
+      - cockpit-podman
+      - cockpit-storaged
+      - cockpit-networkmanager
+    state: present
+
+- name: Start Cockpit Service
+  systemd:
+    name: cockpit.socket
+    enabled: true
+    state: started

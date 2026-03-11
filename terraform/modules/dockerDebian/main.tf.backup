@@ -1,0 +1,59 @@
+resource "proxmox_virtual_environment_vm" "docker_vm" {
+  count     = var.vm_count
+  name      = "docker-dev-${count.index + 1}"
+  node_name = "toothless"   # your Proxmox node name
+
+  clone {
+    vm_id = 9000      # your template ID
+    full  = true
+  }
+
+  cpu {
+    cores = 2
+    type  = "x86-64-v2-AES"
+  }
+
+  memory {
+    dedicated = 2048
+  }
+
+  disk {
+    datastore_id = "local-lvm"
+    interface    = "scsi0"
+    size         = 24
+  }
+
+  network_device {
+    bridge = "vmbr0"
+    model  = "virtio"
+    vlan_id=var.vm_vlan
+  }
+
+  initialization {
+    datastore_id = "local-lvm"
+    ip_config {
+      ipv4 {
+        gateway= var.vm_gateway
+        address = var.vm_ip
+      }
+    }
+    dns {
+      servers = ["192.168.5.5","192.168.5.6"]
+    }
+
+    user_account {
+      username = "ubuntu"
+      keys     = [var.ssh_public_key]
+    }
+  }
+
+  agent {
+    enabled = true
+  }
+
+  on_boot = true
+}
+
+output "vm_ipv4_addresses" {
+  value = proxmox_virtual_environment_vm.docker_vm[*].ipv4_addresses
+}

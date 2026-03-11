@@ -1,0 +1,18 @@
+terraform {
+  required_providers {
+    proxmox = {
+      source  = "bpg/proxmox"
+      version = "~> 0.66"
+    }
+  }
+}
+
+provider "proxmox" {
+  endpoint  = var.proxmox_url
+  api_token = var.proxmox_api_token
+  insecure  = true  # set false if you have a valid SSL cert
+  ssh {
+    agent    = true
+    username = "root"
+  }
+}

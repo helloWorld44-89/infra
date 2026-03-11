@@ -11,6 +11,7 @@
 ansible/env/
 ansible/**/*.env
 *.env
+vault.yml
 
 # SSH Keys
 **/*.pem

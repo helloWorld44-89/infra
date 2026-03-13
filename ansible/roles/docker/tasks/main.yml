@@ -42,8 +42,31 @@
 
 - name: Add ubuntu user to docker group
   user:
-    name: jconder44
+    name: "{{ userName }}"
     groups: docker
     append: true
   when:
   - docker_installed.rc != 0 
+
+- name: Create Docker service override directory
+  file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+    mode: '0755'
+
+- name: Configure Docker to expose TCP socket
+  copy:
+    dest: /etc/systemd/system/docker.service.d/override.conf
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375
+  notify:
+    - Reload systemd
+    - Restart Docker
+
+- name: Ensure Docker is enabled and started
+  systemd:
+    name: docker
+    enabled: true
+    state: started

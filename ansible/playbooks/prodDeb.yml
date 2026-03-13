@@ -102,15 +102,15 @@
 
             - job_name: 'pve-Balerion'
               static_configs:
-                 - targets: ['192.168.5.26:9100']
+                 - targets: ['192.168.5.10:9100']
 
             - job_name: 'pve-Smaug'
               static_configs:
-                 - targets: ['192.168.5.26:9100']
+                 - targets: ['192.168.5.12:9100']
 
             - job_name: 'pve-toothless'
               static_configs:
-                 - targets: ['192.168.5.26:9100']
+                 - targets: ['192.168.5.11:9100']
 
             - job_name: 'dev-ubsrv'
               static_configs:

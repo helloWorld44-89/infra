@@ -1,0 +1,91 @@
+---
+- name: Windows - Install Prometheus Node Exporter
+  hosts: windows
+  gather_facts: true
+
+  vars:
+    node_exporter_version: "0.29.0"
+    node_exporter_port: 9100
+    node_exporter_install_dir: 'C:\Program Files\node_exporter'
+    node_exporter_service_name: node_exporter
+    node_exporter_download_url: "https://github.com/prometheus-community/windows_exporter/releases/download/v{{ node_exporter_version }}/windows_exporter-{{ node_exporter_version }}-amd64.msi"
+    node_exporter_msi_path: 'C:\Temp\windows_exporter.msi'
+    # Collectors to enable - extend as needed
+    node_exporter_collectors: "cpu,cs,logical_disk,net,os,service,system,memory,process"
+
+  tasks:
+
+    # ── Prereqs ───────────────────────────────────────────────────────────────
+
+    - name: Ensure C:\Temp exists
+      ansible.windows.win_file:
+        path: 'C:\Temp'
+        state: directory
+
+    # ── Download & Install ────────────────────────────────────────────────────
+
+    - name: Download windows_exporter MSI
+      ansible.windows.win_get_url:
+        url: "{{ node_exporter_download_url }}"
+        dest: "{{ node_exporter_msi_path }}"
+        force: false
+      register: msi_download
+
+    - name: Install windows_exporter via MSI
+      ansible.windows.win_package:
+        path: "{{ node_exporter_msi_path }}"
+        state: present
+        arguments: >-
+          ENABLED_COLLECTORS="{{ node_exporter_collectors }}"
+          LISTEN_PORT="{{ node_exporter_port }}"
+        creates_service: "{{ node_exporter_service_name }}"
+      register: msi_install
+      notify: Restart windows_exporter
+
+    # ── Service ───────────────────────────────────────────────────────────────
+
+    - name: Ensure windows_exporter service is running and set to auto-start
+      ansible.windows.win_service:
+        name: "{{ node_exporter_service_name }}"
+        state: started
+        start_mode: auto
+
+    # ── Firewall ──────────────────────────────────────────────────────────────
+
+    - name: Allow node_exporter port through Windows Firewall
+      community.windows.win_firewall_rule:
+        name: "Prometheus Node Exporter"
+        localport: "{{ node_exporter_port }}"
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present
+        enabled: true
+
+    # ── Verify ────────────────────────────────────────────────────────────────
+
+    - name: Wait for node_exporter to be reachable
+      ansible.windows.win_wait_for:
+        port: "{{ node_exporter_port }}"
+        host: 127.0.0.1
+        timeout: 30
+
+    - name: Check metrics endpoint responds
+      ansible.windows.win_uri:
+        url: "http://127.0.0.1:{{ node_exporter_port }}/metrics"
+        method: GET
+        status_code: 200
+      register: metrics_check
+
+    - name: Confirm metrics endpoint is up
+      ansible.builtin.debug:
+        msg: "node_exporter is responding on port {{ node_exporter_port }} — status {{ metrics_check.status_code }}"
+
+  # ── Handlers ─────────────────────────────────────────────────────────────
+
+  handlers:
+
+    - name: Restart windows_exporter
+      ansible.windows.win_service:
+        name: "{{ node_exporter_service_name }}"
+        state: restarted

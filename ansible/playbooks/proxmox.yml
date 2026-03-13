@@ -1,0 +1,134 @@
+---
+- name: Proxmox base configuration
+  hosts: proxmox
+  gather_facts: true
+  become: true
+
+  vars:
+    node_exporter_version: "1.8.2"
+    node_exporter_port: 9100
+    node_exporter_user: node_exporter
+    node_exporter_install_dir: /usr/local/bin
+    node_exporter_textfile_dir: /var/lib/node_exporter/textfile_collector
+
+  tasks:
+
+    # ── Node Exporter ────────────────────────────────────────────────────────
+
+    - name: Create node_exporter system user
+      ansible.builtin.user:
+        name: "{{ node_exporter_user }}"
+        shell: /sbin/nologin
+        system: true
+        create_home: false
+
+    - name: Create textfile collector directory
+      ansible.builtin.file:
+        path: "{{ node_exporter_textfile_dir }}"
+        state: directory
+        owner: "{{ node_exporter_user }}"
+        group: "{{ node_exporter_user }}"
+        mode: "0755"
+
+    - name: Download node_exporter archive
+      ansible.builtin.get_url:
+        url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+        dest: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+        mode: "0644"
+      register: ne_download
+
+    - name: Extract node_exporter binary
+      ansible.builtin.unarchive:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+        dest: /tmp
+        remote_src: true
+      when: ne_download.changed
+
+    - name: Install node_exporter binary
+      ansible.builtin.copy:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+        dest: "{{ node_exporter_install_dir }}/node_exporter"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      notify: Restart node_exporter
+
+    - name: Deploy node_exporter systemd unit
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/node_exporter.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Prometheus Node Exporter
+          After=network.target
+
+          [Service]
+          User={{ node_exporter_user }}
+          Group={{ node_exporter_user }}
+          Type=simple
+          ExecStart={{ node_exporter_install_dir }}/node_exporter \
+            --web.listen-address=":{{ node_exporter_port }}" \
+            --collector.textfile.directory={{ node_exporter_textfile_dir }} \
+            --collector.systemd \
+            --collector.processes
+          Restart=on-failure
+          RestartSec=5s
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart node_exporter
+
+    - name: Enable and start node_exporter
+      ansible.builtin.systemd:
+        name: node_exporter
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Open node_exporter port in PVE firewall (host level)
+      ansible.builtin.command:
+        cmd: >
+          pvesh set /nodes/{{ ansible_hostname }}/firewall/options
+          --enable 1
+      changed_when: false
+      failed_when: false
+
+    - name: Allow node_exporter port through iptables (fallback)
+      ansible.builtin.iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: "{{ node_exporter_port }}"
+        jump: ACCEPT
+        comment: "node_exporter"
+      notify: Save iptables rules
+
+    # ── Disable subscription notice ──────────────────────────────────────────
+
+    - name: Run disable-subscription-notice script
+      ansible.builtin.shell:
+        cmd: bash -c "$(wget -qLO - https://github.com/jmclaren7/proxmox/raw/main/disable-subscription-notice.sh)"
+        executable: /bin/bash
+      register: sub_notice_result
+      changed_when: "'patched' in sub_notice_result.stdout | lower or sub_notice_result.rc == 0"
+      failed_when: sub_notice_result.rc != 0
+
+    - name: Show subscription notice script output
+      ansible.builtin.debug:
+        var: sub_notice_result.stdout_lines
+
+  # ── Handlers ───────────────────────────────────────────────────────────────
+
+  handlers:
+
+    - name: Restart node_exporter
+      ansible.builtin.systemd:
+        name: node_exporter
+        state: restarted
+        daemon_reload: true
+
+    - name: Save iptables rules
+      ansible.builtin.command:
+        cmd: iptables-save
+      register: ipt
+      changed_when: false

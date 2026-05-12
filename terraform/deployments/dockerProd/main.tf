@@ -10,6 +10,8 @@ module "dockerProd_vm" {
   vm_memory    = 4096
   vm_disk_size = 40
   prox_nodes = ["Balerion","Smaug","toothless"]
+  vm_password = var.vm_password
+  vm_user     = var.vm_user
 }
 
 output "vm_ip" {

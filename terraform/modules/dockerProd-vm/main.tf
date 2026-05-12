@@ -59,10 +59,10 @@ resource "proxmox_virtual_environment_vm" "vm" {
     dns {
       servers = ["192.168.5.5","192.168.5.6"]
     }
-
+    
     user_account {
-      username = "jconder44"
-      password = "Baseball44"
+      username = var.vm_user
+      password = var.vm_password
       keys     = [var.ssh_public_key]
     }
   }

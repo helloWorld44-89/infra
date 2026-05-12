@@ -7,16 +7,6 @@ terraform {
   }
 }
 
-resource "proxmox_virtual_environment_download_file" "debian_cloud_image" {
-  count        = var.vm_count
-  content_type = "import"
-  datastore_id = "local"
-  node_name    = var.prox_node
-  url          = "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-amd64.qcow2"
-  file_name    = "debian-12-generic-amd64.qcow2"
-  overwrite         = false    
-  overwrite_unmanaged = true
-}
 
 resource "proxmox_virtual_environment_vm" "vm" {
   count     = var.vm_count
@@ -63,8 +53,8 @@ resource "proxmox_virtual_environment_vm" "vm" {
     }
 
     user_account {
-      username = "jconder44"
-      password = "Baseball44"
+      username = var.vm_user
+      password = var.vm_password
       keys     = [var.ssh_public_key]
     }
   }

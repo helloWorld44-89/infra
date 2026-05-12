@@ -1,0 +1,74 @@
+    - name: Install linux-modules-extra for current kernel
+      ansible.builtin.package:
+        name: linux-modules-extra-{{ ansible_kernel }}
+        state: present
+      become: yes
+
+    - name: Install required packages for NFS and SMB
+      ansible.builtin.package:
+        name:
+          - nfs-common       
+          - cifs-utils
+        state: present
+
+    - name: Load CIFS kernel module
+      community.general.modprobe:
+        name: cifs
+        state: present
+
+    - name: Persist CIFS module on boot
+      ansible.builtin.lineinfile:
+        path: /etc/modules-load.d/cifs.conf
+        line: cifs
+        create: yes
+
+    - name: Create mount point directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+      become: yes
+      loop:
+        - /mnt/Backups
+
+    - name: Mount NFS share - Backups
+      ansible.posix.mount:
+        src: 192.168.5.18:/mnt/ConderNAS/Backups
+        path: /mnt/Backups
+        fstype: nfs
+        opts: defaults,_netdev,nfsvers=4
+        state: mounted
+      become: yes
+
+    
+    - name: Deploy backup script from template
+      ansible.builtin.template:
+        src: backup.sh.j2
+        dest: /usr/local/bin/run-backup.sh
+        owner: root
+        group: root
+        mode: "0750"
+      become: true
+
+    - name: Schedule daily backup cron job
+      ansible.builtin.cron:
+        name: "Daily backup - {{ inventory_hostname }}"
+        user: root
+        hour: "{{ backup_schedule_hour }}"
+        minute: "{{ backup_schedule_minute }}"
+        job: /usr/local/bin/run-backup.sh
+        state: present
+      become: true
+
+    - name: Set up log rotation for backup logs
+      ansible.builtin.copy:
+        dest: /etc/logrotate.d/backup
+        mode: "0644"
+        content: |
+          /var/log/backup.log {
+              weekly
+              rotate 4
+              compress
+              missingok
+              notifempty
+          }
+      become: true

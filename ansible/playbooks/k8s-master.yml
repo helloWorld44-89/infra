@@ -1,0 +1,42 @@
+
+- name: Full K3s Cluster Configuration
+  hosts: k3s_cluster
+  become: yes
+  tasks:
+    - name: 1. System Hardening & Dependencies
+      apt:
+        name: [curl, nfs-common, open-iscsi]
+        state: present
+        update_cache: yes
+
+    - name: Disable SWAP
+      shell: |
+        swapoff -a
+        sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+
+- name: Initialize K3s Master
+  hosts: master
+  become: yes
+  tasks:
+    - name: Install K3s on Master
+      shell: >
+        curl -sfL https://get.k3s.io | K3S_TOKEN={{ node_token }} sh -s - server 
+        --node-ip={{ master_ip }} 
+        --flannel-backend=vxlan
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: Wait for node-token file to exist
+      wait_for:
+        path: /var/lib/rancher/k3s/server/node-token
+
+- name: Join K3s Agents
+  hosts: nodes
+  become: yes
+  tasks:
+    - name: Install K3s on Agents and join cluster
+      shell: >
+        curl -sfL https://get.k3s.io | K3S_URL=https://{{ master_ip }}:6443 
+        K3S_TOKEN={{ node_token }} sh -s - agent
+      args:
+        creates: /etc/systemd/system/k3s-agent.service

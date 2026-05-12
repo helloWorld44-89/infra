@@ -1,5 +1,5 @@
 module "dockerDebian" {
-  source         = "../../modules/dockerDev-vm"
+  source         = "../../modules/monitoringServer"
   vm_name        = "prod-debsrv"
   vm_ip          = var.vm_ip
   vm_gateway     = var.vm_gateway
@@ -10,6 +10,8 @@ module "dockerDebian" {
   vm_memory    = 4096
   vm_disk_size = 35
   prox_node = "Balerion"
+  vm_password = var.vm_password
+  vm_user     = var.vm_user
 }
 
 output "vm_ip" {

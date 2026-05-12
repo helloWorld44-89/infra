@@ -33,8 +33,8 @@ variable "vm_count" {
   type        = number
   default     = 1
 }
-variable "prox_node" {
-  description = "Proxmox Node"
-  type = string
-  default = "toothless"
+
+variable "data_disk_size" {
+  type    = number
+  default = null
 }

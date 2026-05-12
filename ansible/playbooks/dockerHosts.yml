@@ -1,45 +1,19 @@
-- name: Configure Prod Docker Servers
-  hosts: prod_Docker
+- name: Configure Docker Servers
+  hosts: dockerHosts
   become: true
 
   roles:
     - common
     - docker
     - cockpit
+    - backups
+    - qemu
+    - updates
 
   tasks:
     - name: Set timezone
       community.general.timezone:
         name: America/Chicago
-    
-    - name: Update and upgrade all packages
-      ansible.builtin.apt:
-        update_cache: true
-        upgrade: dist
-        cache_valid_time: 3600
-
-    - name: Install unattended-upgrades
-      ansible.builtin.apt:
-        name: unattended-upgrades
-        state: present
-
-    - name: Configure unattended-upgrades
-      ansible.builtin.copy:
-        dest: /etc/apt/apt.conf.d/20auto-upgrades
-        content: |
-          APT::Periodic::Update-Package-Lists "1";
-          APT::Periodic::Unattended-Upgrade "1";
-
-    - name: Install qemu guest agent
-      ansible.builtin.apt:
-        name: qemu-guest-agent
-        state: present
-
-    - name: Start and enable qemu guest agent
-      ansible.builtin.service:
-        name: qemu-guest-agent
-        state: started
-        enabled: true    
 
     - name: Disable default MOTD scripts
       ansible.builtin.file:
@@ -55,6 +29,7 @@
         mode: '0755'
         content: |
           #!/bin/bash
+          echo "**************This is a production device in the Conder Home. Unauthorized Access is Prohibited!**************"
           echo ""
           echo "  Hostname : $(hostname)"
           echo "  IP       : $(hostname -I | awk '{print $1}')"
@@ -128,3 +103,54 @@
       retries: 5
       delay: 3
       until: ne_health.status == 200
+#### -------------Add backups and Plex Share for ARR suite
+    - name: Install linux-modules-extra for current kernel
+      ansible.builtin.package:
+        name: linux-modules-extra-{{ ansible_kernel }}
+        state: present
+      become: yes
+
+    - name: Install required packages for NFS and SMB
+      ansible.builtin.package:
+        name:
+          - nfs-common       
+          - cifs-utils
+        state: present
+
+    - name: Load CIFS kernel module
+      community.general.modprobe:
+        name: cifs
+        state: present
+
+    - name: Persist CIFS module on boot
+      ansible.builtin.lineinfile:
+        path: /etc/modules-load.d/cifs.conf
+        line: cifs
+        create: yes
+
+    - name: Create mount point directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+      become: yes
+      loop:
+        - /mnt/Plex
+        - /mnt/phoneMedia
+
+    - name: Mount SMB share - Plex (guest)
+      ansible.posix.mount:
+        src: //192.168.5.18/Plex
+        path: /mnt/Plex
+        fstype: cifs
+        opts: guest,uid=1000,gid=1000,iocharset=utf8,vers=3.0,_netdev
+        state: mounted
+      become: yes
+    
+    - name: Mount SMB share - PhoneMedia
+      ansible.posix.mount:
+        src: //192.168.5.18/phoneMedia
+        path: /mnt/phoneMedia
+        fstype: cifs
+        opts: guest,uid=1000,gid=1000,iocharset=utf8,vers=3.0,_netdev
+        state: mounted
+      become: yes

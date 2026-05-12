@@ -1,0 +1,46 @@
+#!/bin/bash
+set -euo pipefail
+
+HOST="{{ inventory_hostname }}"
+BACKUP_ROOT="/mnt/Backups/${HOST}"
+DATE=$(date +%Y-%m-%d)
+LOG="/var/log/backup.log"
+STAGING="/tmp/backup-staging/${HOST}/${DATE}"
+
+echo "=== Backup started: $(date) ===" >> "${LOG}"
+
+# Create staging directory
+mkdir -p "${STAGING}"
+
+# Copy each folder into staging
+{% for folder in backup_folders %}
+echo "Staging {{ folder }}..." >> "${LOG}"
+rsync -a \
+  "{{ folder }}/" \
+  "${STAGING}/{{ folder | basename }}/" >> "${LOG}" 2>&1
+
+{% endfor %}
+
+# Compress staged files into a single archive
+echo "Compressing archive..." >> "${LOG}"
+mkdir -p "${BACKUP_ROOT}"
+tar -czf "${BACKUP_ROOT}/${DATE}.tar.gz" \
+  -C "/tmp/backup-staging/${HOST}" \
+  "${DATE}" >> "${LOG}" 2>&1
+
+# Clean up staging
+rm -rf "/tmp/backup-staging/${HOST}"
+echo "Staging cleaned up" >> "${LOG}"
+
+# Purge archives older than {{ backup_retention_days }} days
+echo "Purging backups older than {{ backup_retention_days }} days..." >> "${LOG}"
+find "${BACKUP_ROOT}" \
+  -maxdepth 1 \
+  -type f \
+  -name "????-??-??.tar.gz" \
+  -mtime +{{ backup_retention_days }} \
+  -delete >> "${LOG}" 2>&1
+
+echo "=== Backup complete: $(date) ===" >> "${LOG}"
+echo "Archive: ${BACKUP_ROOT}/${DATE}.tar.gz" >> "${LOG}"
+

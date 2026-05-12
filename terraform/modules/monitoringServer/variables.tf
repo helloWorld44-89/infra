@@ -58,3 +58,13 @@ variable "ssh_public_key" {
   description = "SSH public key for VM access"
   type        = string
 }
+
+variable "vm_user" {
+  type      = string
+  sensitive = true
+}
+
+variable "vm_password" {
+  type      = string
+  sensitive = true
+}

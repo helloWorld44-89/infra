@@ -12,4 +12,5 @@
       - git
       - unzip
       - htop
+      - gnupg
     state: present

@@ -12,6 +12,7 @@ variable "proxmox_api_token" {
 variable "ssh_public_key" {
   description = "SSH public key for VM access"
   type        = string
+  sensitive = true
 }
 
 variable "vm_ip" {
@@ -33,12 +34,13 @@ variable "vm_count" {
   type        = number
   default     = 1
 }
-variable "vm_user" {
-  description = "Username for VM account"
-  type        = string
-}
 variable "vm_password" {
-  description = "Password for VM account"
+  description = "Password for VM access"
   type        = string
   sensitive   = true
+}
+variable "vm_username" {
+  description = "Username for VM access"
+  type        = string
+  
 }

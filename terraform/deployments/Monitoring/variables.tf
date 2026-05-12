@@ -16,7 +16,7 @@ variable "ssh_public_key" {
 
 variable "vm_ip" {
   description = "Static IP with CIDR e.g. 192.168.5.44/24"
-  type        = list(string)
+  type        = string
 }
 
 variable "vm_gateway" {
@@ -32,6 +32,11 @@ variable "vm_count" {
   description = "Number of VMs to create"
   type        = number
   default     = 1
+}
+variable "prox_node" {
+  description = "Proxmox Node"
+  type = string
+  default = "toothless"
 }
 variable "vm_user" {
   description = "Username for VM account"

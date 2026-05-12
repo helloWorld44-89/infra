@@ -48,22 +48,30 @@
   when:
   - docker_installed.rc != 0 
 
-- name: Create Docker service override directory
-  file:
+- name: Create docker systemd override directory
+  ansible.builtin.file:
     path: /etc/systemd/system/docker.service.d
     state: directory
-    mode: '0755'
+    mode: "0755"
+  become: true
 
-- name: Configure Docker to expose TCP socket
-  copy:
+- name: Configure Docker to expose API on TCP
+  ansible.builtin.copy:
     dest: /etc/systemd/system/docker.service.d/override.conf
+    mode: "0644"
     content: |
       [Service]
       ExecStart=
-      ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375
-  notify:
-    - Reload systemd
-    - Restart Docker
+      ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:{{ docker_api_port }} --containerd=/run/containerd/containerd.sock
+  become: true
+  when: docker_expose_api | bool
+  notify: Restart Docker
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  become: true
+
 
 - name: Ensure Docker is enabled and started
   systemd:

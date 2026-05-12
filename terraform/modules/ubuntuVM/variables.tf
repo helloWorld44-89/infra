@@ -11,7 +11,7 @@ variable "vm_count" {
 
 variable "vm_ip" {
   description = "Static IP with CIDR e.g. 192.168.5.44/24"
-  type        = string
+  type        = list(string)
 }
 
 variable "vm_gateway" {
@@ -44,14 +44,13 @@ variable "vm_disk_size" {
 
 variable "prox_node" {
   description = "Proxmox node name"
-  type        = string
-  default     = "toothless"
-}
+  type        = list(string)
+  }
 
 variable "datastore" {
   description = "Proxmox storage name"
   type        = string
-  default     = "local-lvm"
+  default     = "vm-ceph"
 }
 
 variable "ssh_public_key" {
@@ -67,4 +66,16 @@ variable "vm_user" {
 variable "vm_password" {
   type      = string
   sensitive = true
+}
+
+variable "data_disk_size" {
+  type        = number
+  default     = null
+  description = "Size of optional data disk in GB. Omit or set null to skip."
+}
+
+variable "data_disk_datastore" {
+  type        = string
+  default     = null
+  description = "Datastore for data disk. Defaults to main datastore if not set."
 }

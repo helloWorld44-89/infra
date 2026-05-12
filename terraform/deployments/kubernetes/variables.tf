@@ -33,12 +33,12 @@ variable "vm_count" {
   type        = number
   default     = 1
 }
-variable "vm_user" {
-  description = "Username for VM account"
+variable "vm_user" {  
+  description = "Username for VM login"
   type        = string
 }
 variable "vm_password" {
-  description = "Password for VM account"
+  description = "Password for VM login"
   type        = string
-  sensitive   = true
+  sensitive   = true  
 }

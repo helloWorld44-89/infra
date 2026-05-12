@@ -1,0 +1,7 @@
+backup_folders:
+  - /etc
+  - /home
+
+backup_retention_days: 30
+backup_schedule_hour: "2"      # 2am daily
+backup_schedule_minute: "0"

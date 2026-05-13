@@ -2,10 +2,18 @@
 **/.terraform/
 **/*.tfstate
 **/*.tfstate.backup
+<<<<<<< HEAD
+=======
+**/*.tfstate.*.backup
+>>>>>>> 5d5e7005fd885c4476c0b2b92cfa756e26074087
 **/.terraform.lock.hcl
 **/terraform.tfvars
 **/*.tfvars
 *.backup
+<<<<<<< HEAD
+=======
+**/*.backup
+>>>>>>> 5d5e7005fd885c4476c0b2b92cfa756e26074087
 
 # Ansible
 ansible/env/

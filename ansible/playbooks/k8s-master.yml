@@ -1,42 +1,246 @@
+---
+# node_token and master_ip are derived automatically on first run and saved to:
+#   inventory/group_vars/kubernetes/k3s_vars.yml
+# On subsequent runs those vars are loaded from that file automatically.
 
 - name: Full K3s Cluster Configuration
-  hosts: k3s_cluster
+  hosts: kubernetes
   become: yes
   tasks:
-    - name: 1. System Hardening & Dependencies
-      apt:
-        name: [curl, nfs-common, open-iscsi]
-        state: present
-        update_cache: yes
-
     - name: Disable SWAP
-      shell: |
+      ansible.builtin.shell: |
         swapoff -a
         sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+      changed_when: false
+
+    - name: Load necessary kernel modules
+      community.general.modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - br_netfilter
+        - overlay
+
+    - name: Persist kernel module loading
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/k3s.conf
+        content: |
+          br_netfilter
+          overlay
+
+    - name: Set sysctl parameters for Kubernetes
+      ansible.posix.sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - { key: 'net.bridge.bridge-nf-call-iptables', value: 1 }
+        - { key: 'net.bridge.bridge-nf-call-ip6tables', value: 1 }
+        - { key: 'net.ipv4.ip_forward', value: 1 }
 
 - name: Initialize K3s Master
-  hosts: master
+  hosts: k3s_master
   become: yes
   tasks:
     - name: Install K3s on Master
-      shell: >
-        curl -sfL https://get.k3s.io | K3S_TOKEN={{ node_token }} sh -s - server 
-        --node-ip={{ master_ip }} 
+      ansible.builtin.shell: >
+        curl -sfL https://get.k3s.io | sh -s - server
+        --node-ip={{ ansible_default_ipv4.address }}
         --flannel-backend=vxlan
       args:
         creates: /usr/local/bin/k3s
 
     - name: Wait for node-token file to exist
-      wait_for:
+      ansible.builtin.wait_for:
         path: /var/lib/rancher/k3s/server/node-token
+        timeout: 120
+
+    - name: Read node token from master
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: k3s_token_raw
+
+    - name: Set token and master IP as host facts
+      ansible.builtin.set_fact:
+        node_token: "{{ k3s_token_raw.content | b64decode | trim }}"
+        master_ip: "{{ ansible_default_ipv4.address }}"
+
+    - name: Ensure group_vars directory exists on controller
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../inventory/group_vars/kubernetes"
+        state: directory
+        mode: "0750"
+      delegate_to: localhost
+      become: false
+
+    - name: Write k3s vars to group_vars on controller
+      ansible.builtin.copy:
+        dest: "{{ playbook_dir }}/../inventory/group_vars/kubernetes/k3s_vars.yml"
+        content: |
+          # Written by k8s-master.yml — do not edit manually
+          # Encrypt with: ansible-vault encrypt inventory/group_vars/kubernetes/k3s_vars.yml
+          node_token: "{{ node_token }}"
+          master_ip: "{{ master_ip }}"
+        mode: "0600"
+        force: no
+      delegate_to: localhost
+      become: false
 
 - name: Join K3s Agents
-  hosts: nodes
+  hosts: k3s_workers
   become: yes
   tasks:
+    - name: Pull master connection vars from master hostvars
+      ansible.builtin.set_fact:
+        node_token: "{{ hostvars[groups['k3s_master'][0]]['node_token'] }}"
+        master_ip: "{{ hostvars[groups['k3s_master'][0]]['master_ip'] }}"
+
     - name: Install K3s on Agents and join cluster
-      shell: >
-        curl -sfL https://get.k3s.io | K3S_URL=https://{{ master_ip }}:6443 
+      ansible.builtin.shell: >
+        curl -sfL https://get.k3s.io |
+        K3S_URL=https://{{ master_ip }}:6443
         K3S_TOKEN={{ node_token }} sh -s - agent
       args:
         creates: /etc/systemd/system/k3s-agent.service
+
+- name: Verify K3s Cluster
+  hosts: k3s_master
+  become: yes
+  tasks:
+    - name: Check K3s node status
+      ansible.builtin.command: /usr/local/bin/k3s kubectl get nodes
+      register: node_status
+      changed_when: false
+
+    - name: Display node status
+      ansible.builtin.debug:
+        var: node_status.stdout
+
+    - name: Show System pods
+      ansible.builtin.command: /usr/local/bin/k3s kubectl get pods -A
+      register: pod_status
+      changed_when: false
+
+    - name: Display pod status
+      ansible.builtin.debug:
+        var: pod_status.stdout
+
+- name: Install NFS Utilities
+  hosts: kubernetes
+  become: yes
+  tasks:
+    - name: Install NFS client utilities
+      ansible.builtin.package:
+        name: nfs-common
+        state: present
+
+- name: Add NFS to Master
+  hosts: k3s_master
+  become: yes
+  vars:
+    nfs_server_ip: "192.168.5.18"
+    nfs_path: "/mnt/nfs_share"
+    nfs_provisioner_name: "k8s-sigs.io/nfs-subdir-external-provisioner"
+  tasks:
+    - name: Deploy NFS Provisioner
+      ansible.builtin.copy:
+        dest: /tmp/nfs-provisioner.yaml
+        content: |
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: nfs-provisioner
+            namespace: kube-system
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: nfs-provisioner-runner
+          rules:
+            - apiGroups: [""]
+              resources: ["persistentvolumes"]
+              verbs: ["get", "list", "watch", "create", "delete"]
+            - apiGroups: [""]
+              resources: ["persistentvolumeclaims"]
+              verbs: ["get", "list", "watch", "update"]
+            - apiGroups: ["storage.k8s.io"]
+              resources: ["storageclasses"]
+              verbs: ["get", "list", "watch"]
+            - apiGroups: [""]
+              resources: ["events"]
+              verbs: ["create", "update", "patch"]
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: run-nfs-provisioner
+          subjects:
+            - kind: ServiceAccount
+              name: nfs-provisioner
+              namespace: kube-system
+          roleRef:
+            kind: ClusterRole
+            name: nfs-provisioner-runner
+            apiGroup: rbac.authorization.k8s.io
+          ---
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: nfs-provisioner
+            namespace: kube-system
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: nfs-provisioner
+            template:
+              metadata:
+                labels:
+                  app: nfs-provisioner
+              spec:
+                serviceAccountName: nfs-provisioner
+                containers:
+                  - name: nfs-provisioner
+                    image: registry.k8s.io/sig-storage/nfs-subdir-external-provisioner:v4.0.2
+                    env:
+                      - name: PROVISIONER_NAME
+                        value: "{{ nfs_provisioner_name }}"
+                      - name: NFS_SERVER
+                        value: "{{ nfs_server_ip }}"
+                      - name: NFS_PATH
+                        value: "{{ nfs_path }}"
+                    volumeMounts:
+                      - name: nfs-client-root
+                        mountPath: /persistentvolumes
+                volumes:
+                  - name: nfs-client-root
+                    nfs:
+                      server: "{{ nfs_server_ip }}"
+                      path: "{{ nfs_path }}"
+
+    - name: Apply NFS Provisioner
+      ansible.builtin.command: /usr/local/bin/k3s kubectl apply -f /tmp/nfs-provisioner.yaml
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      changed_when: true
+
+    - name: Create StorageClass for NFS
+      ansible.builtin.copy:
+        dest: /tmp/nfs-storageclass.yaml
+        content: |
+          apiVersion: storage.k8s.io/v1
+          kind: StorageClass
+          metadata:
+            name: nfs
+            annotations:
+              storageclass.kubernetes.io/is-default-class: "true"
+          provisioner: {{ nfs_provisioner_name }}
+          parameters:
+            archiveOnDelete: "false"
+
+    - name: Apply NFS StorageClass
+      ansible.builtin.command: /usr/local/bin/k3s kubectl apply -f /tmp/nfs-storageclass.yaml
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      changed_when: true

@@ -1,0 +1,211 @@
+<mxfile host="app.diagrams.net" version="24.0.0">
+  <diagram id="homelab-infra" name="Homelab Infrastructure">
+    <mxGraphModel dx="1434" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="960" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ═══════════════════════════════════════════════════
+             LAN BOUNDARY
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="2" value="&lt;b style=&quot;font-size:14px;&quot;&gt;Home Lab — 192.168.5.0/24&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;dashed=1;dashPattern=8 4;verticalAlign=top;fontSize=14;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="1370" height="870" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             PROXMOX CLUSTER
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="3" value="&lt;b&gt;Proxmox Hypervisor Cluster&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;dashed=1;dashPattern=6 3;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="55" width="420" height="165" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="&lt;b&gt;Balerion&lt;/b&gt;&#xa;192.168.5.10&#xa;Proxmox VE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="48" y="110" width="110" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="&lt;b&gt;Smaug&lt;/b&gt;&#xa;192.168.5.12&#xa;Proxmox VE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="183" y="110" width="110" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="&lt;b&gt;toothless&lt;/b&gt;&#xa;192.168.5.11&#xa;Proxmox VE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="318" y="110" width="110" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             K3s CLUSTER
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="7" value="&lt;b&gt;K3s Kubernetes Cluster&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;dashPattern=6 3;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="255" width="420" height="235" as="geometry" />
+        </mxCell>
+        <mxCell id="8" value="&lt;b&gt;k8s-master&lt;/b&gt;&#xa;192.168.5.65&#xa;Control Plane" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="145" y="305" width="140" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="9" value="&lt;b&gt;k8s-node01&lt;/b&gt;&#xa;192.168.5.60&#xa;Worker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="42" y="398" width="110" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="10" value="&lt;b&gt;k8s-node02&lt;/b&gt;&#xa;192.168.5.61&#xa;Worker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="165" y="398" width="110" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="&lt;b&gt;k8s-node03&lt;/b&gt;&#xa;192.168.5.62&#xa;Worker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="288" y="398" width="110" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             DOCKER FLEET
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="13" value="&lt;b&gt;Docker Fleet&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;dashed=1;dashPattern=6 3;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="480" y="55" width="490" height="235" as="geometry" />
+        </mxCell>
+        <mxCell id="14" value="&lt;b&gt;prod-ubsrv-01&lt;/b&gt;&#xa;192.168.5.40&#xa;Docker Prod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="495" y="110" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="15" value="&lt;b&gt;prod-ubsrv-02&lt;/b&gt;&#xa;192.168.5.43&#xa;Docker Prod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="630" y="110" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="16" value="&lt;b&gt;prod-ubsrv-03&lt;/b&gt;&#xa;192.168.5.42&#xa;Docker Prod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="765" y="110" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="17" value="&lt;b&gt;dev-ubsrv-01&lt;/b&gt;&#xa;192.168.5.45&#xa;Docker Dev" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="495" y="195" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="18" value="&lt;b&gt;prod-debsrv&lt;/b&gt;&#xa;192.168.5.48&#xa;Monitoring Host" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="630" y="195" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             VAULT
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="19" value="&lt;b&gt;prod-vault&lt;/b&gt;&#xa;192.168.5.35&#xa;&lt;b&gt;HashiCorp Vault&lt;/b&gt;&#xa;Raft · mlock · TLS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="55" width="185" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             MONITORING STACK
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="20" value="&lt;b&gt;Monitoring Stack&lt;/b&gt;&#xa;Prometheus · Grafana&#xa;AlertManager · cAdvisor&#xa;node_exporter (all hosts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="180" width="185" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             NFS / ConderNAS
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="12" value="&lt;b&gt;ConderNAS&lt;/b&gt;&#xa;192.168.5.18&#xa;NFS Server&#xa;K8s PVCs · Backups · Media" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="480" y="320" width="185" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             NETWORK SERVICES
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="21" value="&lt;b&gt;Network Services&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#666666;dashed=1;dashPattern=6 3;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="525" width="700" height="155" as="geometry" />
+        </mxCell>
+        <mxCell id="22" value="&lt;b&gt;pisrv01&lt;/b&gt;&#xa;192.168.5.5&#xa;Pi-hole DNS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="50" y="585" width="110" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="23" value="&lt;b&gt;pisrv02&lt;/b&gt;&#xa;192.168.5.6&#xa;Pi-hole DNS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="180" y="585" width="110" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="24" value="&lt;b&gt;omada&lt;/b&gt;&#xa;192.168.5.233&#xa;Network Controller" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="315" y="585" width="120" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="25" value="&lt;b&gt;winsrv02&lt;/b&gt;&#xa;192.168.5.26&#xa;Windows Server" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#666666;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="455" y="585" width="120" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             IaC / AUTOMATION (outside LAN box)
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="26" value="&lt;b&gt;IaC / Automation&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;dashPattern=6 3;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="55" width="270" height="195" as="geometry" />
+        </mxCell>
+        <mxCell id="27" value="&lt;b&gt;Terraform&lt;/b&gt;&#xa;bpg/proxmox ~0.66&#xa;VM Provisioning" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1415" y="105" width="140" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="28" value="&lt;b&gt;Ansible&lt;/b&gt;&#xa;Playbooks + Roles&#xa;Configuration Mgmt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1415" y="190" width="140" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             LEGEND
+        ════════════════════════════════════════════════════ -->
+        <mxCell id="29" value="&lt;b&gt;Legend&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;verticalAlign=top;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="760" y="525" width="420" height="155" as="geometry" />
+        </mxCell>
+        <mxCell id="30" value="Proxmox Node" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="775" y="560" width="110" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="31" value="Kubernetes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="775" y="598" width="110" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="32" value="Docker Host" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="775" y="636" width="110" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="33" value="Monitoring" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="900" y="560" width="110" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="34" value="Security / Vault" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="900" y="598" width="110" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="35" value="Storage / NFS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="900" y="636" width="110" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="36" value="Network / Other" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#666666;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="1025" y="560" width="110" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════
+             EDGES
+        ════════════════════════════════════════════════════ -->
+
+        <!-- Terraform → Proxmox Cluster -->
+        <mxCell id="50" value="provisions VMs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#82b366;dashed=1;fontSize=9;" edge="1" source="27" target="3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Ansible → K3s Cluster -->
+        <mxCell id="51" value="configures" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#d6b656;dashed=1;fontSize=9;" edge="1" source="28" target="7" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- K3s workers → master (join) -->
+        <mxCell id="52" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.2;entryY=1;entryDx=0;entryDy=0;strokeColor=#6c8ebf;" edge="1" source="9" target="8" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="53" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;strokeColor=#6c8ebf;" edge="1" source="10" target="8" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="54" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.8;entryY=1;entryDx=0;entryDy=0;strokeColor=#6c8ebf;" edge="1" source="11" target="8" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- NFS → K3s (PVC storage) -->
+        <mxCell id="55" value="PVC storage" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;strokeColor=#d6b656;dashed=1;fontSize=9;" edge="1" source="12" target="7" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- NFS → Docker Fleet (backups/media) -->
+        <mxCell id="56" value="backups / media" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;strokeColor=#d6b656;dashed=1;fontSize=9;" edge="1" source="12" target="13" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- prod-debsrv hosts Monitoring Stack -->
+        <mxCell id="57" value="hosts" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#9673a6;fontSize=9;" edge="1" source="18" target="20" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Monitoring scrapes K3s + Docker hosts -->
+        <mxCell id="58" value="scrapes metrics" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.2;entryDx=0;entryDy=0;strokeColor=#9673a6;dashed=1;fontSize=9;" edge="1" source="20" target="13" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Proxmox runs VMs (Proxmox → K3s cluster) -->
+        <mxCell id="59" value="runs on" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#d79b00;dashed=1;fontSize=9;" edge="1" source="3" target="7" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Proxmox runs VMs → Docker Fleet -->
+        <mxCell id="60" value="runs on" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;strokeColor=#d79b00;dashed=1;fontSize=9;" edge="1" source="3" target="13" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

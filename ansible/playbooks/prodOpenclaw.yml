@@ -8,6 +8,7 @@
     openclaw_user: "openclaw"
     openclaw_group: "openclaw"
     openclaw_port: 8080
+    openclaw_max_concurrent: 5
     openclaw_trusted_subnet: "192.168.5.0/24"
     openclaw_monitoring_ip: "192.168.5.48"
     backup_folders:
@@ -142,6 +143,7 @@
         content: |
           OPENCLAW_HOST=0.0.0.0
           OPENCLAW_PORT={{ openclaw_port }}
+          OPENCLAW_MAX_CONCURRENT={{ openclaw_max_concurrent }}
           OPENCLAW_LOG_DIR={{ openclaw_log_dir }}
           OPENCLAW_DATA_DIR={{ openclaw_install_dir }}/data
           OPENCLAW_AGENTS_DIR={{ openclaw_install_dir }}/agents

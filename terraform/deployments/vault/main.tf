@@ -9,13 +9,8 @@ module "ubuntuVM" {
   vm_cores     = 2
   vm_memory    = 4096
   vm_disk_size = 40
-<<<<<<< HEAD
-  vm_password = "Baseball44"
-  vm_user = "jconder44"
-=======
-  vm_password = "REDACTED"
-  vm_user = "REDACTED"
->>>>>>> 5d5e7005fd885c4476c0b2b92cfa756e26074087
+  vm_user     = var.vm_user
+  vm_password = var.vm_password
   data_disk_size = var.data_disk_size
   data_disk_datastore = "local-lvm"
 }

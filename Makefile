@@ -31,10 +31,11 @@ install: ## Install Ansible collection dependencies (requirements.yml)
 deploy-k8s: tf-apply-k8s ansible-k8s ## Provision K3s VMs then bootstrap the cluster
 deploy-vault: tf-apply-vault ansible-vault ## Provision Vault VM then install + initialise Vault
 deploy-docker: tf-apply-docker-prod ansible-docker ## Provision prod Docker VMs then configure hosts
+deploy-openclaw: tf-apply-openclaw ansible-openclaw ## Provision OpenClaw VM then install the agent framework
 
 # ── Ansible playbooks ─────────────────────────────────────────────────────────
 ## ── Ansible
-.PHONY: ansible-k8s ansible-docker ansible-proxmox ansible-vault ansible-monitoring ansible-dev ansible-keyshift
+.PHONY: ansible-k8s ansible-docker ansible-proxmox ansible-vault ansible-monitoring ansible-dev ansible-keyshift ansible-openclaw
 
 ansible-k8s: ## K3s: master init, worker join, NFS provisioner
 	cd $(ANSIBLE_DIR) && ansible-playbook playbooks/k8s-master.yml $(ANSIBLE_OPTS)
@@ -56,6 +57,9 @@ ansible-dev: ## Dev: configure dev Docker environment
 
 ansible-keyshift: ## Keyshift: deploy keyshift application
 	cd $(ANSIBLE_DIR) && ansible-playbook playbooks/deploy-keyshift.yml $(ANSIBLE_OPTS)
+
+ansible-openclaw: ## OpenClaw: install AI agent framework on prod-openclaw-01
+	cd $(ANSIBLE_DIR) && ansible-playbook playbooks/prodOpenclaw.yml $(ANSIBLE_OPTS)
 
 # ── Terraform: kubernetes ──────────────────────────────────────────────────────
 ## ── Terraform — kubernetes
@@ -152,6 +156,22 @@ tf-apply-keyshift: tf-init-keyshift ## TF apply: keyshift VM
 
 tf-destroy-keyshift: ## TF destroy: keyshift VM (destructive)
 	terraform -chdir=$(TF_BASE)/keyshift destroy $(TF_OPTS)
+
+# ── Terraform: openclaw ───────────────────────────────────────────────────────
+## ── Terraform — openclaw
+.PHONY: tf-init-openclaw tf-plan-openclaw tf-apply-openclaw tf-destroy-openclaw
+
+tf-init-openclaw: ## TF init: OpenClaw AI agent VM
+	terraform -chdir=$(TF_BASE)/openclaw init
+
+tf-plan-openclaw: tf-init-openclaw ## TF plan: OpenClaw AI agent VM
+	terraform -chdir=$(TF_BASE)/openclaw plan $(TF_OPTS)
+
+tf-apply-openclaw: tf-init-openclaw ## TF apply: OpenClaw AI agent VM
+	terraform -chdir=$(TF_BASE)/openclaw apply $(TF_OPTS)
+
+tf-destroy-openclaw: ## TF destroy: OpenClaw AI agent VM (destructive)
+	terraform -chdir=$(TF_BASE)/openclaw destroy $(TF_OPTS)
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 ## ── Utilities

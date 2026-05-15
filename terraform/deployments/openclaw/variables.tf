@@ -15,23 +15,26 @@ variable "ssh_public_key" {
 }
 
 variable "vm_ip" {
-  description = "Static IP with CIDR e.g. 192.168.5.44/24"
-  type        = string
+  description = "Static IP with CIDR for prod-openclaw-01"
+  type        = list(string)
+  default     = ["192.168.5.50/24"]
 }
 
 variable "vm_gateway" {
   description = "Gateway IP"
   type        = string
+  default     = "192.168.5.1"
 }
 
 variable "vm_vlan" {
   description = "VLAN ID"
   type        = number
 }
-variable "vm_count" {
-  description = "Number of VMs to create"
-  type        = number
-  default     = 1
+
+variable "prox_node" {
+  description = "Proxmox node(s) to deploy on"
+  type        = list(string)
+  default     = ["Balerion"]
 }
 
 variable "vm_user" {
@@ -47,6 +50,7 @@ variable "vm_password" {
 }
 
 variable "data_disk_size" {
-  type    = number
-  default = null
+  description = "Size of the OpenClaw data disk in GB (mounted at /opt/openclaw)"
+  type        = number
+  default     = 100
 }

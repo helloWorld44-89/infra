@@ -1,6 +1,6 @@
 module "ubuntuVM" {
   source         = "../../modules/ubuntuVM"
-  vm_name        = "prod-openclaw-01"
+  vm_name        = "prod-hermes-01"
   vm_ip          = var.vm_ip
   vm_gateway     = var.vm_gateway
   vm_vlan        = var.vm_vlan
@@ -16,10 +16,10 @@ module "ubuntuVM" {
   data_disk_size = var.data_disk_size
 }
 
-output "openclaw_ip" {
+output "hermes_ip" {
   value = module.ubuntuVM.vm_ip
 }
 
-output "openclaw_id" {
+output "hermes_id" {
   value = module.ubuntuVM.vm_id
 }

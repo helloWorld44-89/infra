@@ -1,0 +1,263 @@
+- name: Configure prod-hermes-01
+  hosts: hermes
+  become: true
+  vars:
+    hermes_home: "/opt/hermes"           # HERMES_HOME — mounted on data disk /dev/vdb
+    hermes_log_dir: "/var/log/hermes"
+    hermes_user: "hermes"
+    hermes_group: "hermes"
+    hermes_api_port: 8642                # API_SERVER_PORT
+    hermes_webhook_port: 8644            # WEBHOOK_PORT
+    hermes_trusted_subnet: "192.168.5.0/24"
+    hermes_monitoring_ip: "192.168.5.48"
+    backup_folders:
+      - /etc
+      - /home
+      - /opt/hermes
+      - /var/log/hermes
+
+  roles:
+    - common
+    - cockpit
+    - backups
+    - qemu
+    - updates
+
+  tasks:
+
+    # ── System Dependencies ──────────────────────────────────────────────────────
+    - name: Install system dependencies
+      ansible.builtin.apt:
+        name:
+          - curl
+          - wget
+          - git
+          - build-essential
+          - ripgrep
+          - ffmpeg
+          - ufw
+        state: present
+        update_cache: true
+
+    # ── User & Group ─────────────────────────────────────────────────────────────
+    - name: Create hermes group
+      ansible.builtin.group:
+        name: "{{ hermes_group }}"
+        system: true
+        state: present
+
+    - name: Create hermes user
+      ansible.builtin.user:
+        name: "{{ hermes_user }}"
+        group: "{{ hermes_group }}"
+        system: true
+        shell: /bin/bash
+        home: "{{ hermes_home }}"
+        create_home: false
+        state: present
+
+    # ── Data Disk ────────────────────────────────────────────────────────────────
+    - name: Format data disk as ext4
+      community.general.filesystem:
+        fstype: ext4
+        dev: /dev/vdb
+        state: present
+
+    - name: Create HERMES_HOME mount point
+      ansible.builtin.file:
+        path: "{{ hermes_home }}"
+        state: directory
+        mode: "0755"
+
+    - name: Mount data disk at HERMES_HOME
+      ansible.posix.mount:
+        path: "{{ hermes_home }}"
+        src: /dev/vdb
+        fstype: ext4
+        opts: defaults
+        state: mounted
+
+    - name: Set ownership of mount point
+      ansible.builtin.file:
+        path: "{{ hermes_home }}"
+        owner: "{{ hermes_user }}"
+        group: "{{ hermes_group }}"
+        mode: "0750"
+
+    # ── Directories ──────────────────────────────────────────────────────────────
+    - name: Create hermes runtime directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ hermes_user }}"
+        group: "{{ hermes_group }}"
+        mode: "0750"
+      loop:
+        - "{{ hermes_home }}/sessions"
+        - "{{ hermes_home }}/memories"
+        - "{{ hermes_home }}/skills"
+        - "{{ hermes_home }}/logs"
+        - "{{ hermes_log_dir }}"
+
+    # ── Install Hermes Agent ──────────────────────────────────────────────────────
+    - name: Download hermes installer
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh
+        dest: /tmp/hermes-install.sh
+        mode: "0755"
+
+    - name: Run hermes installer (system-wide, headless)
+      ansible.builtin.shell:
+        cmd: bash /tmp/hermes-install.sh --skip-browser
+        creates: /usr/local/bin/hermes
+      environment:
+        HERMES_HOME: "{{ hermes_home }}"
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Set ownership of HERMES_HOME after install
+      ansible.builtin.file:
+        path: "{{ hermes_home }}"
+        owner: "{{ hermes_user }}"
+        group: "{{ hermes_group }}"
+        recurse: true
+
+    # ── Environment File ─────────────────────────────────────────────────────────
+    - name: Create hermes .env file
+      ansible.builtin.copy:
+        dest: "{{ hermes_home }}/.env"
+        owner: "{{ hermes_user }}"
+        group: "{{ hermes_group }}"
+        mode: "0640"
+        force: false
+        content: |
+          HERMES_HOME={{ hermes_home }}
+          API_SERVER_PORT={{ hermes_api_port }}
+          WEBHOOK_PORT={{ hermes_webhook_port }}
+          TERMINAL_ENV=local
+          # LLM provider API keys — populate before starting the service
+          # OPENROUTER_API_KEY=
+          # ANTHROPIC_API_KEY=
+          # OPENAI_API_KEY=
+          # GOOGLE_API_KEY=
+
+    # ── Logrotate ─────────────────────────────────────────────────────────────────
+    - name: Configure log rotation for hermes
+      ansible.builtin.copy:
+        dest: /etc/logrotate.d/hermes
+        mode: "0644"
+        content: |
+          {{ hermes_log_dir }}/*.log {
+            daily
+            rotate 14
+            compress
+            delaycompress
+            missingok
+            notifempty
+            create 0640 {{ hermes_user }} {{ hermes_group }}
+            postrotate
+              systemctl kill -s HUP hermes-gateway.service 2>/dev/null || true
+            endscript
+          }
+
+    # ── Systemd Service ───────────────────────────────────────────────────────────
+    - name: Create hermes-gateway systemd service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/hermes-gateway.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Hermes Agent Gateway (Nous Research)
+          Requires=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=simple
+          User={{ hermes_user }}
+          Group={{ hermes_group }}
+          WorkingDirectory={{ hermes_home }}
+          Environment=HERMES_HOME={{ hermes_home }}
+          EnvironmentFile={{ hermes_home }}/.env
+          ExecStart=/usr/local/bin/hermes
+          Restart=on-failure
+          RestartSec=5
+          TimeoutStopSec=30
+          StandardOutput=append:{{ hermes_log_dir }}/hermes.log
+          StandardError=append:{{ hermes_log_dir }}/hermes-error.log
+          LimitNOFILE=65536
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart hermes-gateway
+
+    - name: Enable and start hermes-gateway service
+      ansible.builtin.systemd:
+        name: hermes-gateway
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    # ── UFW Firewall ──────────────────────────────────────────────────────────────
+    - name: Set UFW default incoming policy to deny
+      community.general.ufw:
+        direction: incoming
+        policy: deny
+
+    - name: Set UFW default outgoing policy to allow
+      community.general.ufw:
+        direction: outgoing
+        policy: allow
+
+    - name: Allow SSH from anywhere
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Allow Cockpit from trusted subnet only
+      community.general.ufw:
+        rule: allow
+        port: "9090"
+        proto: tcp
+        src: "{{ hermes_trusted_subnet }}"
+
+    - name: Allow Hermes API from trusted subnet only
+      community.general.ufw:
+        rule: allow
+        port: "{{ hermes_api_port }}"
+        proto: tcp
+        src: "{{ hermes_trusted_subnet }}"
+
+    - name: Allow Hermes webhook receiver from trusted subnet only
+      community.general.ufw:
+        rule: allow
+        port: "{{ hermes_webhook_port }}"
+        proto: tcp
+        src: "{{ hermes_trusted_subnet }}"
+
+    - name: Allow node_exporter from monitoring server only
+      community.general.ufw:
+        rule: allow
+        port: "9100"
+        proto: tcp
+        src: "{{ hermes_monitoring_ip }}"
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+
+    - name: Hermes deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "Hermes Agent installed to /usr/local/lib/hermes-agent (binary: /usr/local/bin/hermes)"
+          - "HERMES_HOME (data disk /dev/vdb): {{ hermes_home }}"
+          - "Edit {{ hermes_home }}/.env to add LLM API keys, then: systemctl restart hermes-gateway"
+          - "API server on port {{ hermes_api_port }} ({{ hermes_trusted_subnet }} only)"
+          - "Webhook receiver on port {{ hermes_webhook_port }} ({{ hermes_trusted_subnet }} only)"
+          - "Logs: {{ hermes_log_dir }}/hermes.log"
+
+  handlers:
+    - name: Restart hermes-gateway
+      ansible.builtin.systemd:
+        name: hermes-gateway
+        state: restarted
+        daemon_reload: true

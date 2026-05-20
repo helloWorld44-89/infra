@@ -1,0 +1,154 @@
+---
+# deploy-hermes-agents.yml
+# Creates per-agent Linux users on every managed host with
+# sudo restrictions matching each agent's role.
+#
+# Run from your Ansible control node:
+#   ansible-playbook playbooks/deploy-hermes-agents.yml
+#
+# After this runs, each Hermes agent profile can connect
+# as its dedicated user with the appropriate access level.
+
+- name: Deploy Hermes Agent Users
+  hosts: all
+  gather_facts: false
+  vars:
+    agent_keys:
+      hermes-infra:
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIh04Pz/ceisYeoSsCNwK1TW+ZkJDPxm/mPcX6ympGVh hermes-infra-engineer"
+        sudo: "ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/systemctl, /usr/bin/kubectl, /usr/bin/helm, /usr/bin/ansible-playbook, /usr/sbin/reboot"
+      hermes-security:
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPTOswHzdKssL3IeVRXkiJQ94dE6T7uE8XhkOq5p3RGX hermes-security"
+        sudo: "ALL=(ALL) NOPASSWD: /usr/bin/journalctl, /bin/cat, /usr/bin/tail, /usr/bin/last, /usr/sbin/ausearch, /usr/sbin/aureport"
+      hermes-monitoring:
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILti+ocop5iR6OAxfzCqMQOYmj87kN1X+bhUfTZDIZ2k hermes-monitoring"
+        sudo: "ALL=(ALL) NOPASSWD: /usr/bin/docker ps, /usr/bin/docker stats, /usr/bin/free, /usr/bin/df, /usr/bin/top -bn1, /usr/sbin/iotop -bn1"
+      hermes-documentation:
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB1cT9NYER6wB1XmpJX9luRw1Prh728FE4njpsx6a45C hermes-documentation"
+        sudo: "ALL=(ALL) NOPASSWD: /usr/bin/kubectl get, /usr/bin/kubectl describe, /usr/bin/kubectl top"
+      hermes-coding:
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPsMJJSjkzljOqfuZKGaEampJACBkWOF+jMoTLgzQiNn hermes-coding"
+        sudo: "ALL=(ALL) NOPASSWD: /usr/local/bin/*, /usr/bin/docker exec, /usr/bin/kubectl apply, /usr/bin/kubectl delete, /usr/bin/helm upgrade, /usr/bin/helm install"
+
+  tasks:
+    - name: Create hermes agent users
+      ansible.builtin.user:
+        name: "{{ item.key }}"
+        state: present
+        shell: /bin/bash
+        create_home: true
+        home: "/home/{{ item.key }}"
+      loop: "{{ agent_keys | dict2items }}"
+
+    - name: Create .ssh directory for each agent
+      ansible.builtin.file:
+        path: "/home/{{ item.key }}/.ssh"
+        state: directory
+        mode: "0700"
+        owner: "{{ item.key }}"
+        group: "{{ item.key }}"
+      loop: "{{ agent_keys | dict2items }}"
+
+    - name: Deploy authorized_keys for each agent
+      ansible.builtin.authorized_key:
+        user: "{{ item.key }}"
+        key: "{{ item.value.key }}"
+        state: present
+      loop: "{{ agent_keys | dict2items }}"
+
+    - name: Configure sudoers for each agent
+      ansible.builtin.lineinfile:
+        path: "/etc/sudoers.d/hermes-{{ item.key }}"
+        state: present
+        create: true
+        mode: "0440"
+        line: "{{ item.key }} {{ item.value.sudo }}"
+        validate: "visudo -cf %s"
+      loop: "{{ agent_keys | dict2items }}"
+
+    - name: Disable SSH password auth (key-only)
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config.d/99-hermes-agent.conf
+        state: present
+        create: true
+        line: "{{ item }}"
+      loop:
+        - "PasswordAuthentication no"
+        - "PubkeyAuthentication yes"
+        - "ChallengeResponseAuthentication no"
+      notify: restart sshd
+
+  handlers:
+    - name: restart sshd
+      ansible.builtin.systemd:
+        name: sshd
+        state: restarted
+
+
+- name: Configure K3s RBAC
+  hosts: k3s_master
+  gather_facts: false
+  tasks:
+    - name: Create kubeconfigs and RBAC for each agent
+      block:
+        - name: Create service accounts and cluster role bindings
+          ansible.builtin.shell: |
+            # hermes-infra — cluster admin for deploying apps
+            kubectl create serviceaccount hermes-infra -n kube-system --dry-run=client -o yaml | kubectl apply -f -
+            kubectl create clusterrolebinding hermes-infra-admin --clusterrole=cluster-admin --serviceaccount=kube-system:hermes-infra --dry-run=client -o yaml | kubectl apply -f -
+
+            # hermes-security — pods, events, nodes, logs (view + watch)
+            kubectl create serviceaccount hermes-security -n kube-system --dry-run=client -o yaml | kubectl apply -f -
+            kubectl create clusterrole hermes-security-role --verb=get,list,watch --resource=pods,events,nodes,namespaces,pods --dry-run=client -o yaml | kubectl apply -f -
+            kubectl create clusterrolebinding hermes-security-view --clusterrole=hermes-security-role --serviceaccount=kube-system:hermes-security --dry-run=client -o yaml | kubectl apply -f -
+
+            # hermes-monitoring — view only
+            kubectl create serviceaccount hermes-monitoring -n kube-system --dry-run=client -o yaml | kubectl apply -f -
+            kubectl create clusterrolebinding hermes-monitoring-view --clusterrole=view --serviceaccount=kube-system:hermes-monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+            # hermes-documentation — view
+            kubectl create serviceaccount hermes-documentation -n kube-system --dry-run=client -o yaml | kubectl apply -f -
+            kubectl create clusterrolebinding hermes-documentation-view --clusterrole=view --serviceaccount=kube-system:hermes-documentation --dry-run=client -o yaml | kubectl apply -f -
+
+            # hermes-coding — edit (deploy, update apps)
+            kubectl create serviceaccount hermes-coding -n kube-system --dry-run=client -o yaml | kubectl apply -f -
+            kubectl create clusterrolebinding hermes-coding-edit --clusterrole=edit --serviceaccount=kube-system:hermes-coding --dry-run=client -o yaml | kubectl apply -f -
+          register: rbac_result
+          changed_when: rbac_result.stdout != ""
+
+        - name: Generate per-agent kubeconfigs with long-lived tokens
+          ansible.builtin.shell: |
+            SA={{ item }}
+            mkdir -p /home/$SA/.kube
+            TOKEN=$(kubectl create token $SA -n kube-system --duration=87600h 2>/dev/null || kubectl create token $SA -n kube-system)
+            CLUSTER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+            CA=$(kubectl config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
+
+            cat > /home/$SA/.kube/config << 'KUBECONFIG'
+            apiVersion: v1
+            kind: Config
+            current-context: {{ item }}
+            contexts:
+            - context:
+                cluster: kubernetes
+                user: {{ item }}
+              name: {{ item }}
+            users:
+            - name: {{ item }}
+              user:
+                token: __TOKEN__
+            clusters:
+            - cluster:
+                certificate-authority-data: __CA__
+                server: __CLUSTER__
+              name: kubernetes
+            KUBECONFIG
+            sed -i "s|__TOKEN__|$TOKEN|g; s|__CA__|$CA|g; s|__CLUSTER__|$CLUSTER|g" /home/$SA/.kube/config
+            chown -R $SA:$SA /home/$SA/.kube
+            chmod 600 /home/$SA/.kube/config
+          loop:
+            - hermes-infra
+            - hermes-security
+            - hermes-monitoring
+            - hermes-documentation
+            - hermes-coding

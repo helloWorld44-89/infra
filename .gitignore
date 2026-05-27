@@ -35,4 +35,4 @@ vault.yml
 .DS_Store
 *.swp
 *.swo
-**/__pycache__/
+**/__pycache__/runbooks/

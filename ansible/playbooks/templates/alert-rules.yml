@@ -1,16 +1,7 @@
 groups:
-  - name: host_alerts
+  - name: node_alerts
     rules:
-      - alert: InstanceDown
-        expr: up == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Instance {{ $labels.instance }} is down"
-          description: "{{ $labels.job }}/{{ $labels.instance }} has been down for 1m"
-
-      - alert: HighCPU
+      - alert: NodeHighCpu
         expr: 100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
         for: 5m
         labels:
@@ -19,20 +10,49 @@ groups:
           summary: "High CPU on {{ $labels.instance }}"
           description: "CPU above 85% for 5m (current: {{ $value }}%)"
 
-      - alert: HighMemory
+      - alert: NodeLowMemory
         expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 90
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "High memory on {{ $labels.instance }}"
+          summary: "Low memory on {{ $labels.instance }}"
           description: "Memory above 90% (current: {{ $value }}%)"
 
-      - alert: DiskSpaceLow
+      - alert: NodeLowDisk
         expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk on {{ $labels.instance }}"
+          description: "Less than 15% disk remaining (current: {{ $value }}%)"
+
+      - alert: NodeDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} is down"
+          description: "{{ $labels.job }}/{{ $labels.instance }} has been down for 1m"
+
+  - name: container_alerts
+    rules:
+      - alert: ContainerCrashLoop
+        expr: rate(container_last_seen{container!=""}[5m]) == 0 and container_last_seen{container!=""} > 0
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Low disk on {{ $labels.instance }}"
-          description: "Less than 15% disk remaining (current: {{ $value }}%)"
+          summary: "Container {{ $labels.container }} crash looping"
+          description: "Container {{ $labels.container }} on {{ $labels.instance }} has been restarting"
+
+      - alert: PodPending
+        expr: kube_pod_status_phase{phase="Pending"} == 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.pod }} pending"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been pending for 10m"

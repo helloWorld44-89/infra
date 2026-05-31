@@ -157,11 +157,20 @@
 
           receivers:
             - name: 'default'
-              # Add your notification config here e.g. Slack:
-              # slack_configs:
-              #   - api_url: 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL'
-              #     channel: '#alerts'
-              #     send_resolved: true
+              email_configs:
+                - to: 'alerts@conderhome.xyz'
+                  from: 'alerts@conderhome.xyz'
+                  smarthost: 'localhost:25'
+                  send_resolved: true
+            - name: 'plane-webhook'
+              webhook_configs:
+                - url: 'https://plane.conderhome.xyz/api/v1/issues/'
+                  send_resolved: true
+            - name: 'slack-alerts'
+              slack_configs:
+                - api_url: 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL'
+                  channel: '#alerts'
+                  send_resolved: true
 
           inhibit_rules:
             - source_match:

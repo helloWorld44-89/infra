@@ -1,0 +1,36 @@
+# Hermes Multi-Agent SSH Configuration
+# Copy this to ~/.ssh/config on the orchestrator machine
+# after running deploy-hermes-agents.yml on your homelab.
+#
+# Each agent profile uses its dedicated key + user when connecting.
+# These keypairs are stored at ~/.ssh/hermes-<role> (private) and .pub (public).
+
+# --- Infra-Engineer (full operational: docker, systemctl, kubectl, helm) ---
+Host 192.168.5.*
+  User hermes-infra
+  IdentityFile ~/.ssh/hermes-infra
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+
+Host *.conderhome.xyz
+  User hermes-infra
+  IdentityFile ~/.ssh/hermes-infra
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+
+# --- Host aliases ---
+Host k8s-master
+  HostName 192.168.5.65
+  User hermes-infra
+  IdentityFile ~/.ssh/hermes-infra
+
+Host balerion smaug toothless
+  HostName 192.168.5.10
+  User hermes-infra
+  IdentityFile ~/.ssh/hermes-infra
+
+# --- Other agent connections (use explicit user + key flags) ---
+# ssh hermes-security@<host> -i ~/.ssh/hermes-security
+# ssh hermes-monitoring@<host> -i ~/.ssh/hermes-monitoring
+# ssh hermes-documentation@<host> -i ~/.ssh/hermes-documentation
+# ssh hermes-coding@<host> -i ~/.ssh/hermes-coding

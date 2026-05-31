@@ -1,0 +1,60 @@
+- name: Ensure promtail binary directory exists
+  file:
+    path: /usr/local/bin
+    state: directory
+    mode: '0755'
+
+- name: Download promtail binary
+  get_url:
+    url: https://github.com/grafana/loki/releases/download/v2.9.2/promtail-linux-amd64
+    dest: /usr/local/bin/promtail
+    mode: '0755'
+    checksum: sha256:{{ promtail_checksum }}
+
+- name: Create promtail config directory
+  file:
+    path: /etc/promtail
+    state: directory
+    mode: '0755'
+
+- name: Deploy promtail configuration
+  copy:
+    dest: /etc/promtail/promtail.yaml
+    content: |
+      server:
+        http_listen_port: 9080
+      positions:
+        filename: /tmp/positions.yaml
+      clients:
+        - url: http://loki:3100/loki/api/v1/push
+      scrape_configs:
+        - job_name: system
+          static_configs:
+            - targets:
+                - localhost
+              labels:
+                job: varlogs
+                __path__: /var/log/**/*.log
+  mode: '0644'
+
+- name: Create promtail systemd service
+  copy:
+    dest: /etc/systemd/system/promtail.service
+    content: |
+      [Unit]
+      Description=Promtail Service
+      After=network.target
+
+      [Service]
+      ExecStart=/usr/local/bin/promtail -config.file=/etc/promtail/promtail.yaml
+      Restart=on-failure
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: '0644'
+
+- name: Enable and start promtail service
+  systemd:
+    name: promtail
+    enabled: true
+    state: started

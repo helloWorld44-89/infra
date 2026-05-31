@@ -9,6 +9,8 @@
     - backups
     - qemu
     - updates
+    - promtail
+    - promtail
 
   tasks:
     - name: Set timezone

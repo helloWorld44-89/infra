@@ -10,7 +10,6 @@
     - qemu
     - updates
     - promtail
-    - promtail
 
   tasks:
     - name: Set timezone
@@ -99,7 +98,7 @@
 
     - name: Verify node_exporter is reachable
       uri:
-        url: http://localhost:9191/metrics
+        url: http://localhost:9100/metrics
         status_code: 200
       register: ne_health
       retries: 5

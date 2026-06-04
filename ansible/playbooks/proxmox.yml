@@ -128,7 +128,6 @@
         daemon_reload: true
 
     - name: Save iptables rules
-      ansible.builtin.command:
-        cmd: iptables-save
-      register: ipt
-      changed_when: false
+      ansible.builtin.shell:
+        cmd: iptables-save > /etc/iptables/rules.v4
+      changed_when: true

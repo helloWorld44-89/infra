@@ -1,59 +1,59 @@
----
 - name: Check if Docker is already installed
-  command: docker --version
+  ansible.builtin.command: docker --version
   register: docker_installed
   ignore_errors: true
   changed_when: false
 
-
 - name: Install Docker dependencies
-  apt:
+  ansible.builtin.apt:
     name:
       - apt-transport-https
       - ca-certificates
       - curl
       - gnupg
     state: present
-  when:
-    - docker_installed.rc != 0 
+  when: docker_installed.rc != 0
 
-- name: Add Docker GPG key
-  apt_key:
+- name: Create apt keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+  when: docker_installed.rc != 0
+
+- name: Download Docker GPG key
+  ansible.builtin.get_url:
     url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
-  when:
-  - docker_installed.rc != 0 
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+  when: docker_installed.rc != 0
 
-- name: Add Docker repo
-  apt_repository:
-    repo: deb https://download.docker.com/linux/ubuntu noble stable
+- name: Add Docker repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable"
     state: present
-  when:
-    - docker_installed.rc != 0 
+  when: docker_installed.rc != 0
 
 - name: Install Docker and Compose plugin
-  apt:
+  ansible.builtin.apt:
     name:
       - docker-ce
       - docker-compose-plugin
     state: present
-  when:
-    - docker_installed.rc != 0 
+  when: docker_installed.rc != 0
 
 - name: Add ubuntu user to docker group
-  user:
+  ansible.builtin.user:
     name: "{{ userName }}"
     groups: docker
     append: true
-  when:
-  - docker_installed.rc != 0 
+  when: docker_installed.rc != 0
 
 - name: Create docker systemd override directory
   ansible.builtin.file:
     path: /etc/systemd/system/docker.service.d
     state: directory
     mode: "0755"
-  become: true
 
 - name: Configure Docker to expose API on TCP
   ansible.builtin.copy:
@@ -63,18 +63,15 @@
       [Service]
       ExecStart=
       ExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:{{ docker_api_port }} --containerd=/run/containerd/containerd.sock
-  become: true
   when: docker_expose_api | bool
   notify: Restart Docker
 
 - name: Reload systemd daemon
   ansible.builtin.systemd:
     daemon_reload: true
-  become: true
-
 
 - name: Ensure Docker is enabled and started
-  systemd:
+  ansible.builtin.systemd:
     name: docker
     enabled: true
     state: started

@@ -15,9 +15,9 @@ variable "ssh_public_key" {
 }
 
 variable "vm_ip" {
-  description = "Static IP with CIDR for prod-openclaw-01"
+  description = "Static IP with CIDR for prod-agents-01"
   type        = list(string)
-  default     = ["192.168.5.50/24"]
+  default     = ["192.168.5.99/24"]
 }
 
 variable "vm_gateway" {
@@ -50,7 +50,7 @@ variable "vm_password" {
 }
 
 variable "data_disk_size" {
-  description = "Size of the OpenClaw data disk in GB (mounted at /opt/openclaw)"
+  description = "Size of the shared agent-services data disk in GB, mounted at /srv/agents (Hermes Agent and PaperclipAI each get a subdirectory)"
   type        = number
-  default     = 100
+  default     = 150
 }

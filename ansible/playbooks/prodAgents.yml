@@ -1,0 +1,606 @@
+- name: Configure prod-agents-01 (Hermes Agent + PaperclipAI)
+  hosts: agents
+  become: true
+  vars:
+    agents_data_root: "/srv/agents"
+
+    # Hermes Agent (NousResearch gateway) — unchanged software, new home
+    hermes_home: "{{ agents_data_root }}/hermes"        # HERMES_HOME — data disk /dev/vdb
+    hermes_log_dir: "/var/log/hermes"
+    hermes_user: "hermes"
+    hermes_group: "hermes"
+    hermes_api_port: 8642                                # API_SERVER_PORT
+    hermes_webhook_port: 8644                            # WEBHOOK_PORT
+
+    # PaperclipAI (https://paperclip.ing) — orchestration layer, native install
+    # (Node.js process + embedded Postgres), same data disk as Hermes.
+    paperclip_home: "{{ agents_data_root }}/paperclip"          # linux home for the paperclip user — CLI install, config, Claude Code's own config
+    paperclip_data_dir: "{{ agents_data_root }}/paperclip/data" # PAPERCLIP_HOME — app data, embedded Postgres, workspaces
+    paperclip_log_dir: "/var/log/paperclip"
+    paperclip_user: "paperclip"
+    paperclip_group: "paperclip"
+    paperclip_port: 3100
+    paperclip_public_url: "http://192.168.5.99:{{ paperclip_port }}"
+
+    node_exporter_version: "1.8.2"
+    node_exporter_port: 9100
+    node_exporter_user: "node_exporter"
+    node_exporter_install_dir: "/usr/local/bin"
+    node_exporter_textfile_dir: "/var/lib/node_exporter/textfile_collector"
+
+    trusted_subnet: "192.168.5.0/24"
+    monitoring_ip: "192.168.5.48"
+
+    backup_folders:
+      - /etc
+      - /home
+      - "{{ hermes_home }}"
+      - "{{ hermes_log_dir }}"
+      - "{{ paperclip_home }}"
+
+  roles:
+    - common
+    - cockpit
+    - backups
+    - qemu
+    - updates
+    - promtail
+
+  tasks:
+
+    # ── System Dependencies ──────────────────────────────────────────────────────
+    - name: Install system dependencies
+      ansible.builtin.apt:
+        name:
+          - curl
+          - wget
+          - git
+          - build-essential
+          - ripgrep
+          - ffmpeg
+          - ufw
+        state: present
+        update_cache: true
+      tags: [setup]
+
+    # ── Data Disk (shared by both services) ──────────────────────────────────────
+    - name: Format data disk as ext4
+      community.general.filesystem:
+        fstype: ext4
+        dev: /dev/vdb
+        state: present
+      tags: [setup]
+
+    - name: Create agents data root mount point
+      ansible.builtin.file:
+        path: "{{ agents_data_root }}"
+        state: directory
+        mode: "0755"
+      tags: [setup]
+
+    - name: Mount data disk at agents data root
+      ansible.posix.mount:
+        path: "{{ agents_data_root }}"
+        src: /dev/vdb
+        fstype: ext4
+        opts: defaults
+        state: mounted
+      tags: [setup]
+
+    # ── Hermes Agent ──────────────────────────────────────────────────────────────
+    - name: Create hermes group
+      ansible.builtin.group:
+        name: "{{ hermes_group }}"
+        system: true
+        state: present
+      tags: [hermes]
+
+    - name: Create hermes user
+      ansible.builtin.user:
+        name: "{{ hermes_user }}"
+        group: "{{ hermes_group }}"
+        system: true
+        shell: /bin/bash
+        home: "{{ hermes_home }}"
+        create_home: false
+        state: present
+      tags: [hermes]
+
+    - name: Create HERMES_HOME mount point
+      ansible.builtin.file:
+        path: "{{ hermes_home }}"
+        state: directory
+        owner: "{{ hermes_user }}"
+        group: "{{ hermes_group }}"
+        mode: "0750"
+      tags: [hermes]
+
+    - name: Create hermes runtime directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ hermes_user }}"
+        group: "{{ hermes_group }}"
+        mode: "0750"
+      loop:
+        - "{{ hermes_home }}/sessions"
+        - "{{ hermes_home }}/memories"
+        - "{{ hermes_home }}/skills"
+        - "{{ hermes_home }}/logs"
+        - "{{ hermes_log_dir }}"
+      tags: [hermes]
+
+    - name: Download hermes installer
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh
+        dest: /tmp/hermes-install.sh
+        mode: "0755"
+      tags: [hermes]
+
+    - name: Run hermes installer (system-wide, headless)
+      ansible.builtin.shell:
+        cmd: bash /tmp/hermes-install.sh --skip-browser
+        creates: /usr/local/bin/hermes
+      environment:
+        HERMES_HOME: "{{ hermes_home }}"
+        DEBIAN_FRONTEND: noninteractive
+      tags: [hermes]
+
+    - name: Set ownership of HERMES_HOME after install
+      ansible.builtin.file:
+        path: "{{ hermes_home }}"
+        owner: "{{ hermes_user }}"
+        group: "{{ hermes_group }}"
+        recurse: true
+      tags: [hermes]
+
+    - name: Create hermes .env file (dedicated LLM provider keys)
+      ansible.builtin.copy:
+        dest: "{{ hermes_home }}/.env"
+        owner: "{{ hermes_user }}"
+        group: "{{ hermes_group }}"
+        mode: "0640"
+        force: false
+        content: |
+          HERMES_HOME={{ hermes_home }}
+          API_SERVER_PORT={{ hermes_api_port }}
+          WEBHOOK_PORT={{ hermes_webhook_port }}
+          TERMINAL_ENV=local
+          # LLM provider API keys — dedicated to Hermes Agent, kept separate from
+          # PaperclipAI's own keys so spend/budget tracking doesn't get conflated.
+          # Populate before starting the service.
+          # OPENROUTER_API_KEY=
+          # ANTHROPIC_API_KEY=
+          # OPENAI_API_KEY=
+          # GOOGLE_API_KEY=
+      tags: [hermes]
+
+    - name: Configure log rotation for hermes
+      ansible.builtin.copy:
+        dest: /etc/logrotate.d/hermes
+        mode: "0644"
+        content: |
+          {{ hermes_log_dir }}/*.log {
+            daily
+            rotate 14
+            compress
+            delaycompress
+            missingok
+            notifempty
+            create 0640 {{ hermes_user }} {{ hermes_group }}
+            postrotate
+              systemctl kill -s HUP hermes-gateway.service 2>/dev/null || true
+            endscript
+          }
+      tags: [hermes]
+
+    - name: Create hermes-gateway systemd service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/hermes-gateway.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Hermes Agent Gateway (Nous Research)
+          Requires=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=simple
+          User={{ hermes_user }}
+          Group={{ hermes_group }}
+          WorkingDirectory={{ hermes_home }}
+          Environment=HERMES_HOME={{ hermes_home }}
+          EnvironmentFile={{ hermes_home }}/.env
+          ExecStart=/usr/local/bin/hermes
+          Restart=on-failure
+          RestartSec=5
+          TimeoutStopSec=30
+          StandardOutput=append:{{ hermes_log_dir }}/hermes.log
+          StandardError=append:{{ hermes_log_dir }}/hermes-error.log
+          LimitNOFILE=65536
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart hermes-gateway
+      tags: [hermes]
+
+    - name: Enable and start hermes-gateway service
+      ansible.builtin.systemd:
+        name: hermes-gateway
+        enabled: true
+        state: started
+        daemon_reload: true
+      tags: [hermes]
+
+    # ── Node.js (required by PaperclipAI and Claude Code CLI) ────────────────────
+    - name: Check if Node.js is already installed
+      ansible.builtin.command: node --version
+      register: node_installed
+      ignore_errors: true
+      changed_when: false
+      tags: [paperclip]
+
+    - name: Create apt keyrings directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+      when: node_installed.rc != 0
+      tags: [paperclip]
+
+    - name: Download NodeSource GPG key
+      ansible.builtin.get_url:
+        url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+        dest: /etc/apt/keyrings/nodesource.asc
+        mode: "0644"
+      when: node_installed.rc != 0
+      tags: [paperclip]
+
+    - name: Add NodeSource repository (Node.js 24.x — Paperclip requires 24.11+)
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/nodesource.asc] https://deb.nodesource.com/node_24.x nodistro main"
+        state: present
+      when: node_installed.rc != 0
+      tags: [paperclip]
+
+    - name: Install Node.js
+      ansible.builtin.apt:
+        name: nodejs
+        state: present
+        update_cache: true
+      when: node_installed.rc != 0
+      tags: [paperclip]
+
+    # ── Claude Code CLI ───────────────────────────────────────────────────────────
+    # Installed on the host (not containerized) so PaperclipAI — also running
+    # natively on this host — can spawn/invoke it directly as one of its agents.
+    - name: Install Claude Code CLI (global)
+      community.general.npm:
+        name: "@anthropic-ai/claude-code"
+        global: true
+        state: present
+      tags: [paperclip]
+
+    # ── PaperclipAI ───────────────────────────────────────────────────────────────
+    - name: Create paperclip group
+      ansible.builtin.group:
+        name: "{{ paperclip_group }}"
+        system: true
+        state: present
+      tags: [paperclip]
+
+    - name: Create paperclip user
+      ansible.builtin.user:
+        name: "{{ paperclip_user }}"
+        group: "{{ paperclip_group }}"
+        system: true
+        shell: /bin/bash
+        home: "{{ paperclip_home }}"
+        create_home: false
+        state: present
+      tags: [paperclip]
+
+    - name: Create paperclip directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ paperclip_user }}"
+        group: "{{ paperclip_group }}"
+        mode: "0750"
+      loop:
+        - "{{ paperclip_home }}"
+        - "{{ paperclip_data_dir }}"
+        - "{{ paperclip_log_dir }}"
+      tags: [paperclip]
+
+    # CONFIRM at implementation time: `onboard` bootstraps config + the managed
+    # CLI under ~/.paperclip/cli per Paperclip's own docs; the exact headless
+    # flags below (--yes/--no-prompt/--bind lan) and the ExecStart path/subcommand
+    # in the systemd unit further down haven't been run interactively yet.
+    - name: Run PaperclipAI onboarding (installs managed CLI under ~/.paperclip/cli)
+      ansible.builtin.command:
+        cmd: npx --yes paperclipai onboard --yes --no-prompt --bind lan
+        chdir: "{{ paperclip_home }}"
+        creates: "{{ paperclip_home }}/.paperclip/cli"
+      become: true
+      become_user: "{{ paperclip_user }}"
+      environment:
+        HOME: "{{ paperclip_home }}"
+      tags: [paperclip]
+
+    - name: Create PaperclipAI .env file (dedicated LLM provider keys + auth secret)
+      ansible.builtin.copy:
+        dest: "{{ paperclip_home }}/.env"
+        owner: "{{ paperclip_user }}"
+        group: "{{ paperclip_group }}"
+        mode: "0640"
+        force: false
+        content: |
+          HOST=0.0.0.0
+          PORT={{ paperclip_port }}
+          PAPERCLIP_HOME={{ paperclip_data_dir }}
+          PAPERCLIP_DEPLOYMENT_MODE=authenticated
+          PAPERCLIP_PUBLIC_URL={{ paperclip_public_url }}
+          PAPERCLIP_ALLOWED_HOSTNAMES={{ trusted_subnet }}
+          # Generate a real secret before first start: openssl rand -hex 32
+          BETTER_AUTH_SECRET=
+          BETTER_AUTH_URL={{ paperclip_public_url }}
+          # LLM provider API keys — dedicated to PaperclipAI's own orchestration-planning
+          # calls (claude_local/codex_local/gemini_local adapters). Kept separate from
+          # Hermes Agent's keys so per-agent budget tracking is meaningful.
+          # ANTHROPIC_API_KEY also authenticates the Claude Code CLI itself when
+          # Paperclip invokes it as an agent (Claude Code reads this env var directly —
+          # no interactive `claude login` needed, which wouldn't work headless anyway).
+          # ANTHROPIC_API_KEY=
+          # OPENAI_API_KEY=
+          # GEMINI_API_KEY=
+      tags: [paperclip]
+
+    - name: Configure log rotation for paperclip
+      ansible.builtin.copy:
+        dest: /etc/logrotate.d/paperclip
+        mode: "0644"
+        content: |
+          {{ paperclip_log_dir }}/*.log {
+            daily
+            rotate 14
+            compress
+            delaycompress
+            missingok
+            notifempty
+            create 0640 {{ paperclip_user }} {{ paperclip_group }}
+            postrotate
+              systemctl kill -s HUP paperclip.service 2>/dev/null || true
+            endscript
+          }
+      tags: [paperclip]
+
+    - name: Create paperclip systemd service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/paperclip.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=PaperclipAI Orchestration Platform
+          Requires=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=simple
+          User={{ paperclip_user }}
+          Group={{ paperclip_group }}
+          WorkingDirectory={{ paperclip_home }}
+          Environment=HOME={{ paperclip_home }}
+          EnvironmentFile={{ paperclip_home }}/.env
+          ExecStart={{ paperclip_home }}/.paperclip/cli/bin/paperclipai start
+          Restart=on-failure
+          RestartSec=5
+          TimeoutStopSec=30
+          StandardOutput=append:{{ paperclip_log_dir }}/paperclip.log
+          StandardError=append:{{ paperclip_log_dir }}/paperclip-error.log
+          LimitNOFILE=65536
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart paperclip
+      tags: [paperclip]
+
+    - name: Enable and start paperclip service
+      ansible.builtin.systemd:
+        name: paperclip
+        enabled: true
+        state: started
+        daemon_reload: true
+      tags: [paperclip]
+
+    - name: Verify PaperclipAI is reachable
+      ansible.builtin.uri:
+        url: "http://localhost:{{ paperclip_port }}"
+        status_code: 200,302,401
+      register: paperclip_health
+      retries: 10
+      delay: 3
+      until: paperclip_health.status in [200, 302, 401]
+      tags: [paperclip]
+
+    # ── Node Exporter (native — no Docker on this host) ──────────────────────────
+    - name: Create node_exporter system user
+      ansible.builtin.user:
+        name: "{{ node_exporter_user }}"
+        shell: /sbin/nologin
+        system: true
+        create_home: false
+      tags: [monitoring]
+
+    - name: Create textfile collector directory
+      ansible.builtin.file:
+        path: "{{ node_exporter_textfile_dir }}"
+        state: directory
+        owner: "{{ node_exporter_user }}"
+        group: "{{ node_exporter_user }}"
+        mode: "0755"
+      tags: [monitoring]
+
+    - name: Download node_exporter archive
+      ansible.builtin.get_url:
+        url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+        dest: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+        mode: "0644"
+      register: ne_download
+      tags: [monitoring]
+
+    - name: Extract node_exporter binary
+      ansible.builtin.unarchive:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+        dest: /tmp
+        remote_src: true
+      when: ne_download.changed
+      tags: [monitoring]
+
+    - name: Install node_exporter binary
+      ansible.builtin.copy:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+        dest: "{{ node_exporter_install_dir }}/node_exporter"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      notify: Restart node_exporter
+      tags: [monitoring]
+
+    - name: Deploy node_exporter systemd unit
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/node_exporter.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Prometheus Node Exporter
+          After=network.target
+
+          [Service]
+          User={{ node_exporter_user }}
+          Group={{ node_exporter_user }}
+          Type=simple
+          ExecStart={{ node_exporter_install_dir }}/node_exporter \
+            --web.listen-address=":{{ node_exporter_port }}" \
+            --collector.textfile.directory={{ node_exporter_textfile_dir }} \
+            --collector.systemd \
+            --collector.processes
+          Restart=on-failure
+          RestartSec=5s
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart node_exporter
+      tags: [monitoring]
+
+    - name: Enable and start node_exporter
+      ansible.builtin.systemd:
+        name: node_exporter
+        enabled: true
+        state: started
+        daemon_reload: true
+      tags: [monitoring]
+
+    - name: Verify node_exporter is reachable
+      ansible.builtin.uri:
+        url: "http://localhost:{{ node_exporter_port }}/metrics"
+        status_code: 200
+      register: node_exporter_health
+      retries: 5
+      delay: 3
+      until: node_exporter_health.status == 200
+      tags: [monitoring]
+
+    # ── UFW Firewall ──────────────────────────────────────────────────────────────
+    - name: Set UFW default incoming policy to deny
+      community.general.ufw:
+        direction: incoming
+        policy: deny
+      tags: [firewall]
+
+    - name: Set UFW default outgoing policy to allow
+      community.general.ufw:
+        direction: outgoing
+        policy: allow
+      tags: [firewall]
+
+    - name: Allow SSH from anywhere
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+      tags: [firewall]
+
+    - name: Allow Cockpit from trusted subnet only
+      community.general.ufw:
+        rule: allow
+        port: "9090"
+        proto: tcp
+        src: "{{ trusted_subnet }}"
+      tags: [firewall]
+
+    - name: Allow Hermes API from trusted subnet only
+      community.general.ufw:
+        rule: allow
+        port: "{{ hermes_api_port }}"
+        proto: tcp
+        src: "{{ trusted_subnet }}"
+      tags: [firewall]
+
+    - name: Allow Hermes webhook receiver from trusted subnet only
+      community.general.ufw:
+        rule: allow
+        port: "{{ hermes_webhook_port }}"
+        proto: tcp
+        src: "{{ trusted_subnet }}"
+      tags: [firewall]
+
+    - name: Allow PaperclipAI from trusted subnet only
+      community.general.ufw:
+        rule: allow
+        port: "{{ paperclip_port }}"
+        proto: tcp
+        src: "{{ trusted_subnet }}"
+      tags: [firewall]
+
+    - name: Allow node_exporter from monitoring server only
+      community.general.ufw:
+        rule: allow
+        port: "{{ node_exporter_port }}"
+        proto: tcp
+        src: "{{ monitoring_ip }}"
+      tags: [firewall]
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+      tags: [firewall]
+
+    - name: Deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "Hermes Agent: HERMES_HOME={{ hermes_home }}, edit .env then: systemctl restart hermes-gateway"
+          - "Hermes API on {{ hermes_api_port }}, webhook on {{ hermes_webhook_port }} ({{ trusted_subnet }} only)"
+          - "PaperclipAI: edit {{ paperclip_home }}/.env (auth secret + LLM keys), then: systemctl restart paperclip"
+          - "PaperclipAI UI on {{ paperclip_port }} ({{ trusted_subnet }} only), authenticated mode — complete onboarding to create the login account"
+          - "Claude Code CLI installed globally — Paperclip can invoke it directly as an agent on this host"
+
+  handlers:
+    - name: Restart hermes-gateway
+      ansible.builtin.systemd:
+        name: hermes-gateway
+        state: restarted
+        daemon_reload: true
+
+    - name: Restart paperclip
+      ansible.builtin.systemd:
+        name: paperclip
+        state: restarted
+        daemon_reload: true
+
+    - name: Restart node_exporter
+      ansible.builtin.systemd:
+        name: node_exporter
+        state: restarted
+        daemon_reload: true

@@ -26,16 +26,16 @@ install: ## Install Ansible collection dependencies (requirements.yml)
 
 # ── Full-stack workflows ───────────────────────────────────────────────────────
 ## ── End-to-end deploy (Terraform then Ansible)
-.PHONY: deploy-k8s deploy-vault deploy-docker deploy-hermes
+.PHONY: deploy-k8s deploy-vault deploy-docker deploy-agents
 
 deploy-k8s: tf-apply-k8s ansible-k8s ## Provision K3s VMs then bootstrap the cluster
 deploy-vault: tf-apply-vault ansible-vault ## Provision Vault VM then install + initialise Vault
 deploy-docker: tf-apply-docker-prod ansible-docker ## Provision prod Docker VMs then configure hosts
-deploy-hermes: tf-apply-hermes ansible-hermes ## Provision Hermes VM then install the agent framework
+deploy-agents: tf-apply-agents ansible-agents ## Provision Agents VM then install Hermes Agent + PaperclipAI
 
 # ── Ansible playbooks ─────────────────────────────────────────────────────────
 ## ── Ansible
-.PHONY: ansible-k8s ansible-docker ansible-proxmox ansible-vault ansible-monitoring ansible-dev ansible-keyshift ansible-hermes
+.PHONY: ansible-k8s ansible-docker ansible-proxmox ansible-vault ansible-monitoring ansible-dev ansible-keyshift ansible-agents
 
 ansible-k8s: ## K3s: master init, worker join, NFS provisioner
 	cd $(ANSIBLE_DIR) && ansible-playbook playbooks/k8s-master.yml $(ANSIBLE_OPTS)
@@ -58,8 +58,8 @@ ansible-dev: ## Dev: configure dev Docker environment
 ansible-keyshift: ## Keyshift: deploy keyshift application
 	cd $(ANSIBLE_DIR) && ansible-playbook playbooks/deploy-keyshift.yml $(ANSIBLE_OPTS)
 
-ansible-hermes: ## Hermes: install AI agent framework on prod-hermes-01
-	cd $(ANSIBLE_DIR) && ansible-playbook playbooks/prodHermes.yml $(ANSIBLE_OPTS)
+ansible-agents: ## Agents: install Hermes Agent + PaperclipAI on prod-agents-01
+	cd $(ANSIBLE_DIR) && ansible-playbook playbooks/prodAgents.yml $(ANSIBLE_OPTS)
 
 # ── Terraform: kubernetes ──────────────────────────────────────────────────────
 ## ── Terraform — kubernetes
@@ -157,21 +157,21 @@ tf-apply-keyshift: tf-init-keyshift ## TF apply: keyshift VM
 tf-destroy-keyshift: ## TF destroy: keyshift VM (destructive)
 	terraform -chdir=$(TF_BASE)/keyshift destroy $(TF_OPTS)
 
-# ── Terraform: hermes ─────────────────────────────────────────────────────────
-## ── Terraform — hermes
-.PHONY: tf-init-hermes tf-plan-hermes tf-apply-hermes tf-destroy-hermes
+# ── Terraform: agents ──────────────────────────────────────────────────────────
+## ── Terraform — agents
+.PHONY: tf-init-agents tf-plan-agents tf-apply-agents tf-destroy-agents
 
-tf-init-hermes: ## TF init: Hermes AI agent VM
-	terraform -chdir=$(TF_BASE)/hermes init
+tf-init-agents: ## TF init: Agents VM (Hermes Agent + PaperclipAI)
+	terraform -chdir=$(TF_BASE)/agents init
 
-tf-plan-hermes: tf-init-hermes ## TF plan: Hermes AI agent VM
-	terraform -chdir=$(TF_BASE)/hermes plan $(TF_OPTS)
+tf-plan-agents: tf-init-agents ## TF plan: Agents VM (Hermes Agent + PaperclipAI)
+	terraform -chdir=$(TF_BASE)/agents plan $(TF_OPTS)
 
-tf-apply-hermes: tf-init-hermes ## TF apply: Hermes AI agent VM
-	terraform -chdir=$(TF_BASE)/hermes apply $(TF_OPTS)
+tf-apply-agents: tf-init-agents ## TF apply: Agents VM (Hermes Agent + PaperclipAI)
+	terraform -chdir=$(TF_BASE)/agents apply $(TF_OPTS)
 
-tf-destroy-hermes: ## TF destroy: Hermes AI agent VM (destructive)
-	terraform -chdir=$(TF_BASE)/hermes destroy $(TF_OPTS)
+tf-destroy-agents: ## TF destroy: Agents VM (Hermes Agent + PaperclipAI) (destructive)
+	terraform -chdir=$(TF_BASE)/agents destroy $(TF_OPTS)
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 ## ── Utilities

@@ -58,6 +58,7 @@
           - ripgrep
           - ffmpeg
           - ufw
+          - acl        # setfacl — needed for become_user to an unprivileged user (paperclip)
         state: present
         update_cache: true
       tags: [setup]
@@ -196,10 +197,7 @@
             delaycompress
             missingok
             notifempty
-            create 0640 {{ hermes_user }} {{ hermes_group }}
-            postrotate
-              systemctl kill -s HUP hermes-gateway.service 2>/dev/null || true
-            endscript
+            copytruncate
           }
       tags: [hermes]
 
@@ -220,7 +218,7 @@
           WorkingDirectory={{ hermes_home }}
           Environment=HERMES_HOME={{ hermes_home }}
           EnvironmentFile={{ hermes_home }}/.env
-          ExecStart=/usr/local/bin/hermes
+          ExecStart=/usr/local/bin/hermes gateway run --replace --external-supervisor
           Restart=on-failure
           RestartSec=5
           TimeoutStopSec=30
@@ -233,11 +231,10 @@
       notify: Restart hermes-gateway
       tags: [hermes]
 
-    - name: Enable and start hermes-gateway service
+    # Installed but not enabled/started — configure by hand first, then
+    # `systemctl enable --now hermes-gateway`.
+    - name: Reload systemd for hermes-gateway unit
       ansible.builtin.systemd:
-        name: hermes-gateway
-        enabled: true
-        state: started
         daemon_reload: true
       tags: [hermes]
 
@@ -322,19 +319,15 @@
         - "{{ paperclip_log_dir }}"
       tags: [paperclip]
 
-    # CONFIRM at implementation time: `onboard` bootstraps config + the managed
-    # CLI under ~/.paperclip/cli per Paperclip's own docs; the exact headless
-    # flags below (--yes/--no-prompt/--bind lan) and the ExecStart path/subcommand
-    # in the systemd unit further down haven't been run interactively yet.
-    - name: Run PaperclipAI onboarding (installs managed CLI under ~/.paperclip/cli)
-      ansible.builtin.command:
-        cmd: npx --yes paperclipai onboard --yes --no-prompt --bind lan
-        chdir: "{{ paperclip_home }}"
-        creates: "{{ paperclip_home }}/.paperclip/cli"
-      become: true
-      become_user: "{{ paperclip_user }}"
-      environment:
-        HOME: "{{ paperclip_home }}"
+    # Installed as a plain global npm package rather than Paperclip's managed
+    # CLI store. Onboarding is left to be done by hand (see the summary at the
+    # end); the systemd unit only runs an already-onboarded instance.
+    - name: Install PaperclipAI CLI (global)
+      community.general.npm:
+        name: paperclipai
+        global: true
+        state: present
+      notify: Restart paperclip
       tags: [paperclip]
 
     - name: Create PaperclipAI .env file (dedicated LLM provider keys + auth secret)
@@ -377,10 +370,7 @@
             delaycompress
             missingok
             notifempty
-            create 0640 {{ paperclip_user }} {{ paperclip_group }}
-            postrotate
-              systemctl kill -s HUP paperclip.service 2>/dev/null || true
-            endscript
+            copytruncate
           }
       tags: [paperclip]
 
@@ -401,7 +391,8 @@
           WorkingDirectory={{ paperclip_home }}
           Environment=HOME={{ paperclip_home }}
           EnvironmentFile={{ paperclip_home }}/.env
-          ExecStart={{ paperclip_home }}/.paperclip/cli/bin/paperclipai start
+          Environment=PAPERCLIP_NO_BROWSER=true
+          ExecStart=/usr/bin/paperclipai run
           Restart=on-failure
           RestartSec=5
           TimeoutStopSec=30
@@ -414,22 +405,11 @@
       notify: Restart paperclip
       tags: [paperclip]
 
-    - name: Enable and start paperclip service
+    # Installed but not enabled/started — onboard by hand first, then
+    # `systemctl enable --now paperclip`.
+    - name: Reload systemd for paperclip unit
       ansible.builtin.systemd:
-        name: paperclip
-        enabled: true
-        state: started
         daemon_reload: true
-      tags: [paperclip]
-
-    - name: Verify PaperclipAI is reachable
-      ansible.builtin.uri:
-        url: "http://localhost:{{ paperclip_port }}"
-        status_code: 200,302,401
-      register: paperclip_health
-      retries: 10
-      delay: 3
-      until: paperclip_health.status in [200, 302, 401]
       tags: [paperclip]
 
     # ── Node Exporter (native — no Docker on this host) ──────────────────────────
@@ -589,24 +569,24 @@
     - name: Deployment summary
       ansible.builtin.debug:
         msg:
-          - "Hermes Agent: HERMES_HOME={{ hermes_home }}, edit .env then: systemctl restart hermes-gateway"
+          - "Installed only — Hermes and Paperclip services are NOT enabled or started."
+          - "Hermes: edit {{ hermes_home }}/.env, run `sudo -u {{ hermes_user }} -H env HERMES_HOME={{ hermes_home }} hermes setup`, then `systemctl enable --now hermes-gateway`"
           - "Hermes API on {{ hermes_api_port }}, webhook on {{ hermes_webhook_port }} ({{ trusted_subnet }} only)"
-          - "PaperclipAI: edit {{ paperclip_home }}/.env (auth secret + LLM keys), then: systemctl restart paperclip"
-          - "PaperclipAI UI on {{ paperclip_port }} ({{ trusted_subnet }} only), authenticated mode — complete onboarding to create the login account"
-          - "Claude Code CLI installed globally — Paperclip can invoke it directly as an agent on this host"
+          - "Paperclip: edit {{ paperclip_home }}/.env (set BETTER_AUTH_SECRET + LLM keys), then onboard with the same env the service uses:"
+          - "  sudo -u {{ paperclip_user }} -H bash -c 'set -a; . ~/.env; set +a; paperclipai onboard --no-install-service'"
+          - "  then `systemctl enable --now paperclip` (UI on {{ paperclip_port }}, {{ trusted_subnet }} only)"
+          - "Claude Code: installed globally as `claude` — set ANTHROPIC_API_KEY or run `claude` to log in as the user that will use it"
 
   handlers:
+    # try-restart: restart only if already running, so a re-run never starts
+    # a service that hasn't been configured yet.
     - name: Restart hermes-gateway
-      ansible.builtin.systemd:
-        name: hermes-gateway
-        state: restarted
-        daemon_reload: true
+      ansible.builtin.command: systemctl try-restart hermes-gateway
+      changed_when: true
 
     - name: Restart paperclip
-      ansible.builtin.systemd:
-        name: paperclip
-        state: restarted
-        daemon_reload: true
+      ansible.builtin.command: systemctl try-restart paperclip
+      changed_when: true
 
     - name: Restart node_exporter
       ansible.builtin.systemd:

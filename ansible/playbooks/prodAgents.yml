@@ -137,13 +137,23 @@
         mode: "0755"
       tags: [hermes]
 
+    # --non-interactive is required: Ansible's SSH connection allocates a pty
+    # (-tt), so the installer finds /dev/tty and blocks on `hermes setup`.
+    # The installer puts the binary under $HERMES_HOME/hermes-agent/.hermes/bin.
     - name: Run hermes installer (system-wide, headless)
       ansible.builtin.shell:
-        cmd: bash /tmp/hermes-install.sh --skip-browser
-        creates: /usr/local/bin/hermes
+        cmd: bash /tmp/hermes-install.sh --non-interactive --skip-browser
+        creates: "{{ hermes_home }}/hermes-agent/.hermes/bin/hermes"
       environment:
         HERMES_HOME: "{{ hermes_home }}"
         DEBIAN_FRONTEND: noninteractive
+      tags: [hermes]
+
+    - name: Link hermes binary into /usr/local/bin
+      ansible.builtin.file:
+        src: "{{ hermes_home }}/hermes-agent/.hermes/bin/hermes"
+        dest: /usr/local/bin/hermes
+        state: link
       tags: [hermes]
 
     - name: Set ownership of HERMES_HOME after install

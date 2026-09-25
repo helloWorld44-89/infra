@@ -1,1 +1,3 @@
-promtail_checksum: d2c8b58c5c0f2de3f0e4e8b8f0a9d5b0aeef2d0c58c6f2a5d1f7e2b4c5a6d7e8
+promtail_version: "2.9.2"
+promtail_checksum: f2d4f59e4dee505eee9c2c28e2eebb89442e7b544144aff2b7d03a57cafbaf58  # promtail-linux-amd64.zip
+promtail_loki_url: "http://192.168.5.48:3100/loki/api/v1/push"

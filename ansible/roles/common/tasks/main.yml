@@ -1,4 +1,17 @@
 ---
+- name: Wait for cloud-init to finish first-boot setup
+  command: cloud-init status --wait
+  register: cloudinit_wait
+  changed_when: false
+  failed_when: cloudinit_wait.rc not in [0, 2]
+
+- name: Wait for apt/dpkg locks to be released
+  shell: |
+    while fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock >/dev/null 2>&1; do
+      sleep 2
+    done
+  changed_when: false
+
 - name: Check if needrestart is installed
   stat:
     path: /etc/needrestart/needrestart.conf

@@ -1,4 +1,17 @@
 ---
+- name: Check if needrestart is installed
+  stat:
+    path: /etc/needrestart/needrestart.conf
+  register: needrestart_conf
+
+- name: Set needrestart to non-interactive (auto-restart services, no prompts)
+  lineinfile:
+    path: /etc/needrestart/needrestart.conf
+    regexp: '^#?\s*\$nrconf\{restart\}\s*='
+    line: "$nrconf{restart} = 'a';"
+    insertafter: EOF
+  when: needrestart_conf.stat.exists
+
 - name: Update apt cache
   apt:
     update_cache: true

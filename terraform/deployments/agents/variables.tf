@@ -48,9 +48,3 @@ variable "vm_password" {
   type        = string
   sensitive   = true
 }
-
-variable "data_disk_size" {
-  description = "Size of the shared agent-services data disk in GB, mounted at /srv/agents (Hermes Agent and PaperclipAI each get a subdirectory)"
-  type        = number
-  default     = 150
-}

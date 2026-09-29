@@ -9,11 +9,10 @@ module "ubuntuVM" {
   vm_count       = 1
   vm_cores       = 4
   vm_memory      = 10240
-  vm_disk_size   = 60
+  vm_disk_size   = 100
   datastore      = "vm-ceph"
   vm_user        = var.vm_user
   vm_password    = var.vm_password
-  data_disk_size = var.data_disk_size
 }
 
 output "agents_ip" {

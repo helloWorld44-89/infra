@@ -15,19 +15,19 @@
   vars:
     agent_keys:
       hermes-infra:
-        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIh04Pz/ceisYeoSsCNwK1TW+ZkJDPxm/mPcX6ympGVh hermes-infra-engineer"
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKfQefd8YPiP938Un/aseJwCSuppifsbmVv2djk/A6Fm hermes-infra"
         sudo: "ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/systemctl, /usr/bin/kubectl, /usr/bin/helm, /usr/bin/ansible-playbook, /usr/sbin/reboot, /usr/bin/journalctl"
       hermes-security:
-        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPTOswHzdKssL3IeVRXkiJQ94dE6T7uE8XhkOq5p3RGX hermes-security"
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIlReiyhrhKHi41witTK7LUrmJOQX5z1WD3M3vgIf92h hermes-security"
         sudo: "ALL=(ALL) NOPASSWD: /usr/bin/journalctl, /bin/cat, /usr/bin/tail, /usr/bin/last, /usr/sbin/ausearch, /usr/sbin/aureport"
       hermes-monitoring:
-        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILti+ocop5iR6OAxfzCqMQOYmj87kN1X+bhUfTZDIZ2k hermes-monitoring"
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGRhk/H73wf7kvDL/x5xce2IYO1uHqKXih/y1pEMQtA6 hermes-monitoring"
         sudo: "ALL=(ALL) NOPASSWD: /usr/bin/docker ps, /usr/bin/docker stats, /usr/bin/free, /usr/bin/df, /usr/bin/top -bn1, /usr/sbin/iotop -bn1"
       hermes-documentation:
-        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB1cT9NYER6wB1XmpJX9luRw1Prh728FE4njpsx6a45C hermes-documentation"
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8g3CSpSoiTlkGIxTGRBXLWcdLxrBr/FbqGOg1IhuN5 hermes-documentation"
         sudo: "ALL=(ALL) NOPASSWD: /usr/bin/kubectl get, /usr/bin/kubectl describe, /usr/bin/kubectl top"
       hermes-coding:
-        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPsMJJSjkzljOqfuZKGaEampJACBkWOF+jMoTLgzQiNn hermes-coding"
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHwbHvBKiKDD8eiWmro3b7pWaq+B6rUubZ1AnmZwi5j9 hermes-coding"
         sudo: "ALL=(ALL) NOPASSWD: /usr/local/bin/*, /usr/bin/docker exec, /usr/bin/kubectl apply, /usr/bin/kubectl delete, /usr/bin/helm upgrade, /usr/bin/helm install"
 
   tasks:

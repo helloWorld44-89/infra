@@ -3,11 +3,11 @@
 // VMs on Proxmox Cluster
 import {
   to = proxmox_virtual_environment_vm.prod-ubsrv-1
-  id = "Balerion/117"
+  id = "toothless/117"
 }
 import {
   to = proxmox_virtual_environment_vm.prod-ubsrv-2
-  id = "Smaug/115"
+  id = "Balerion/115"
 }
 import {
   to = proxmox_virtual_environment_vm.prod-ubsrv-3
@@ -19,24 +19,24 @@ import {
 }
 import {
   to = proxmox_virtual_environment_vm.fedsr02
-  id = "Smaug/108"
+  id = "Balerion/108"
 }
 import {
   to = proxmox_virtual_environment_vm.haos14
-  id = "Smaug/107"
+  id = "Balerion/107"
 }
+// NOTE 2026-10-05: these 4 were on Smaug until an interrupted `terraform apply`
+// triggered a shutdown (reboot_after_update=true) and Proxmox HA failed them
+// over to Balerion on restart. node_name below updated to match; see homelab
+// skill incident note before attempting to move them back to Smaug.
 import {
   to = proxmox_virtual_environment_vm.dev-ubsrv
   id = "toothless/116"
 }
-import {
-  to = proxmox_virtual_environment_vm.prod-vaultSrv
-  id = "toothless/100"
-}
-import {
-    to = proxmox_virtual_environment_vm.addyWin01
-    id = "toothless/113"
-}
+// prod-vaultSrv removed 2026-10-05: Vault was destroyed; vmid toothless/100
+// was reused for prod-k3s-3 (imported below under its new identity).
+// addyWin01 removed 2026-10-05: no longer exists on Proxmox (toothless/113 gone).
+
 //Containers
 import {
   to = proxmox_virtual_environment_container.pisrv01
@@ -44,7 +44,7 @@ import {
 }
 import {
   to = proxmox_virtual_environment_container.pisrv02
-  id = "Smaug/112"
+  id = "toothless/112"
 }
 import {
   to = proxmox_virtual_environment_container.myspeed
@@ -53,5 +53,26 @@ import {
 import {
   to = proxmox_virtual_environment_container.omada
   id = "toothless/110"
+}
 
+// Added 2026-10-05: previously untracked k3s + agents VMs
+import {
+  to = proxmox_virtual_environment_vm.prod-k3s-1
+  id = "Balerion/102"
+}
+import {
+  to = proxmox_virtual_environment_vm.prod-k3s-2
+  id = "Smaug/101"
+}
+import {
+  to = proxmox_virtual_environment_vm.prod-k3s-3
+  id = "toothless/100"
+}
+import {
+  to = proxmox_virtual_environment_vm.prod-k3s-master
+  id = "toothless/104"
+}
+import {
+  to = proxmox_virtual_environment_vm.prod-agents-01
+  id = "Balerion/106"
 }

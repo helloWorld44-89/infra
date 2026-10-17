@@ -1,0 +1,7 @@
+---
+- name: Deploy keepalived for Pi-hole HA (VIP 192.168.5.53)
+  hosts: pisrv01,pisrv02
+  remote_user: hermes-infra
+  become: true
+  roles:
+    - keepalived-pihole

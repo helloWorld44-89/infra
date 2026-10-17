@@ -1,0 +1,8 @@
+---
+# keepalived-pihole role variables
+keepalived_vip: "192.168.5.53/24"
+keepalived_virtual_router_id: 51
+keepalived_advert_int: 1
+keepalived_auth_type: "PASS"
+keepalived_auth_pass: "pihole88"   # 8-char shared secret
+keepalived_instance_name: "VI_PIHOLE"

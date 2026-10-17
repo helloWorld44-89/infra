@@ -1,7 +1,9 @@
 # __generated__ by Terraform
 # Please review these resources and move them into your main configuration files.
 
-# __generated__ by Terraform from "toothless/103"
+# REMOVED 2026-10-05: stale capture (container was later renamed/retagged/made
+# unprivileged outside Terraform) - would force destroy+recreate. Regenerating.
+/*
 resource "proxmox_virtual_environment_container" "pisrv01" {
   description           = "preclone\n"
   environment_variables = {}
@@ -105,7 +107,8 @@ resource "proxmox_virtual_environment_container" "pisrv01" {
   }
 }
 
-# __generated__ by Terraform from "Smaug/112"
+# REMOVED 2026-10-05: node was wrong (said Smaug, actually toothless) - regenerating.
+/*
 resource "proxmox_virtual_environment_container" "pisrv02" {
   description           = "Pihole LXC\n"
   environment_variables = {}
@@ -208,6 +211,7 @@ resource "proxmox_virtual_environment_container" "pisrv02" {
     type             = "debian"
   }
 }
+*/
 
 # __generated__ by Terraform from "toothless/109"
 resource "proxmox_virtual_environment_container" "myspeed" {
@@ -332,7 +336,8 @@ resource "proxmox_virtual_environment_container" "omada" {
   }
 }
 
-# __generated__ by Terraform
+# REMOVED 2026-10-05: Vault destroyed, vmid toothless/100 reused by prod-k3s-3.
+/*
 resource "proxmox_virtual_environment_vm" "prod-vaultSrv" {
   acpi                                 = true
   bios                                 = "seabios"
@@ -459,8 +464,10 @@ resource "proxmox_virtual_environment_vm" "prod-vaultSrv" {
     shared         = 0
   }
 }
+*/
 
-# __generated__ by Terraform
+# REMOVED 2026-10-05: node was wrong (said Balerion, actually toothless) - regenerating.
+/*
 resource "proxmox_virtual_environment_vm" "prod-ubsrv-1" {
   acpi                                 = true
   bios                                 = "seabios"
@@ -570,6 +577,7 @@ resource "proxmox_virtual_environment_vm" "prod-ubsrv-1" {
     shared         = 0
   }
 }
+*/
 
 # __generated__ by Terraform
 resource "proxmox_virtual_environment_vm" "prod-ubsrv-2" {
@@ -585,6 +593,7 @@ resource "proxmox_virtual_environment_vm" "prod-ubsrv-2" {
   machine                              = null
   migrate                              = false
   name                                 = "prod-ubsrv-2"
+  # node_name updated 2026-10-05: HA-relocated from Smaug to Balerion, see main.tf note
   network_device = [{
     bridge       = "vmbr0"
     disconnected = false
@@ -598,7 +607,7 @@ resource "proxmox_virtual_environment_vm" "prod-ubsrv-2" {
     trunks       = ""
     vlan_id      = 1
   }]
-  node_name           = "Smaug"
+  node_name           = "Balerion"
   on_boot             = true
   pool_id             = null
   protection          = false
@@ -793,8 +802,9 @@ resource "proxmox_virtual_environment_vm" "prod-ubsrv-3" {
   }
 }
 
-# __generated__ by Terraform
-# NOTE: name changed from "haos14.0" to "haos14" - Proxmox uses .0 for versioning, not Terraform
+# REMOVED 2026-10-05: stale capture had wrong disk datastore (local-lvm vs
+# live vm-ceph) - applying would trigger an unwanted storage migration. Regenerating.
+/*
 resource "proxmox_virtual_environment_vm" "haos14" {
   acpi                                 = true
   bios                                 = "ovmf"
@@ -894,8 +904,10 @@ resource "proxmox_virtual_environment_vm" "haos14" {
     type = "l26"
   }
 }
+*/
 
-# __generated__ by Terraform
+# REMOVED 2026-10-05: node was wrong (said Balerion, actually Smaug) - regenerating.
+/*
 resource "proxmox_virtual_environment_vm" "prod-debsrv" {
   acpi                                 = true
   bios                                 = "seabios"
@@ -1005,6 +1017,7 @@ resource "proxmox_virtual_environment_vm" "prod-debsrv" {
     shared         = 0
   }
 }
+*/
 
 # __generated__ by Terraform
 resource "proxmox_virtual_environment_vm" "dev-ubsrv" {
@@ -1117,10 +1130,8 @@ resource "proxmox_virtual_environment_vm" "dev-ubsrv" {
   }
 }
 
-# __generated__ by Terraform
-# Please review these resources and move them into your main configuration files.
-
-# __generated__ by Terraform
+# REMOVED 2026-10-05: addyWin01 (toothless/113) no longer exists on Proxmox.
+/*
 resource "proxmox_virtual_environment_vm" "addyWin01" {
   acpi                                 = true
   bios                                 = "ovmf"
@@ -1221,6 +1232,7 @@ resource "proxmox_virtual_environment_vm" "addyWin01" {
     type = "win11"
   }
 }
+*/
 
 # __generated__ by Terraform
 resource "proxmox_virtual_environment_vm" "fedsr02" {
@@ -1245,7 +1257,8 @@ resource "proxmox_virtual_environment_vm" "fedsr02" {
     trunks       = ""
     vlan_id      = 0
   }]
-  node_name           = "Smaug"
+  # node_name updated 2026-10-05: HA-relocated from Smaug to Balerion, see main.tf note
+  node_name           = "Balerion"
   on_boot             = true
   pool_id             = null
   protection          = false

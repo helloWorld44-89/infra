@@ -1,0 +1,41 @@
+---
+# Install and configure keepalived for Pi-hole VIP failover
+
+- name: Install keepalived
+  ansible.builtin.apt:
+    name: keepalived
+    state: present
+    update_cache: true
+  become: true
+
+- name: Determine keepalived interface per host
+  ansible.builtin.set_fact:
+    keepalived_interface: "{{ 'eth0' if inventory_hostname == 'pisrv01' else 'net5' }}"
+    keepalived_state: "{{ 'MASTER' if inventory_hostname == 'pisrv01' else 'BACKUP' }}"
+    keepalived_priority: "{{ 101 if inventory_hostname == 'pisrv01' else 100 }}"
+
+- name: Render keepalived.conf
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    mode: "0644"
+  become: true
+  notify: restart keepalived
+
+- name: Enable and start keepalived
+  ansible.builtin.systemd:
+    name: keepalived
+    enabled: true
+    state: started
+  become: true
+
+- name: Verify VIP is assigned on master
+  ansible.builtin.command: ip addr show {{ keepalived_interface }}
+  register: vip_check
+  become: true
+  changed_when: false
+  failed_when: false
+
+- name: Show VIP status
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }} ({{ keepalived_state }}) — VIP present: {{ keepalived_vip.split('/')[0] in vip_check.stdout }}"

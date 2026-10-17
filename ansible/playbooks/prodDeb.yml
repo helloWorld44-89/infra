@@ -88,10 +88,6 @@
               static_configs:
                  - targets: ['192.168.5.13:9100']
 
-            - job_name: 'fedsrv01'
-              static_configs:
-                 - targets: ['192.168.5.27:9100']
-
             - job_name: 'trueNas'
               static_configs:
                  - targets: ['192.168.5.18:9100']

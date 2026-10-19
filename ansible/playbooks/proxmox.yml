@@ -103,6 +103,50 @@
         comment: "node_exporter"
       notify: Save iptables rules
 
+    # ── e1000e "Detected Hardware Unit Hang" mitigation ─────────────────────
+    # Known Intel e1000e TX-hang bug on these mini PCs' onboard NIC (I219).
+    # TSO/GSO offload is the most commonly cited trigger. Disabling it
+    # persistently (ethtool settings reset on every reboot otherwise) via
+    # a oneshot systemd unit. Mini PCs have no PCIe slot for a replacement
+    # NIC, so this is the mitigation, not a full fix for the underlying
+    # driver/firmware bug.
+
+    - name: Deploy eno1 offload-disable systemd unit
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/eno1-disable-offload.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Disable TSO/GSO on eno1 (e1000e TX hang mitigation)
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/sbin/ethtool -K eno1 tso off gso off
+          RemainAfterExit=true
+
+          [Install]
+          WantedBy=multi-user.target
+      register: offload_unit
+
+    - name: Enable and start eno1 offload-disable unit
+      ansible.builtin.systemd:
+        name: eno1-disable-offload
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Verify eno1 TSO/GSO are disabled
+      ansible.builtin.command:
+        cmd: ethtool -k eno1
+      register: eno1_offload_check
+      changed_when: false
+
+    - name: Show eno1 offload status
+      ansible.builtin.debug:
+        var: eno1_offload_check.stdout_lines
+
     # ── Disable subscription notice ──────────────────────────────────────────
 
     - name: Run disable-subscription-notice script

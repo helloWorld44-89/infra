@@ -1,0 +1,223 @@
+---
+# deploy-codingVM.yml
+#
+# Provisions "codebox" -- a dedicated remote-coding VM for running
+# Claude Code from a phone (Termius+tmux or similar), with Docker
+# available for local testing.
+#
+# Required extra-vars:
+#   tailscale_authkey   -- Tailscale auth key (reusable, ephemeral
+#                           recommended) from the admin console
+
+- name: Provision codebox (remote coding VM)
+  hosts: codingVM
+  become: true
+
+  roles:
+    - common
+    - docker
+
+  tasks:
+    - name: Set timezone
+      community.general.timezone:
+        name: America/Chicago
+
+    - name: Update and upgrade all packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+        cache_valid_time: 3600
+
+    - name: Install unattended-upgrades
+      ansible.builtin.apt:
+        name: unattended-upgrades
+        state: present
+
+    - name: Configure unattended-upgrades
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+
+    - name: Install qemu guest agent
+      ansible.builtin.apt:
+        name: qemu-guest-agent
+        state: present
+
+    - name: Start and enable qemu guest agent
+      ansible.builtin.service:
+        name: qemu-guest-agent
+        state: started
+        enabled: true
+
+    # --- Swap: compiles / LSPs spike memory beyond the 8GB allocated ---
+    - name: Check for existing swapfile
+      ansible.builtin.stat:
+        path: /swapfile
+      register: swapfile_stat
+
+    - name: Create 4GB swapfile
+      when: not swapfile_stat.stat.exists
+      block:
+        - ansible.builtin.command: fallocate -l 4G /swapfile
+        - ansible.builtin.file:
+            path: /swapfile
+            mode: "0600"
+        - ansible.builtin.command: mkswap /swapfile
+        - ansible.builtin.command: swapon /swapfile
+        - ansible.builtin.lineinfile:
+            path: /etc/fstab
+            line: "/swapfile none swap sw 0 0"
+
+    # --- Base dev tooling ---
+    - name: Install base dev packages
+      ansible.builtin.apt:
+        name:
+          - git
+          - build-essential
+          - curl
+          - tmux
+          - mosh
+          - ca-certificates
+          - gnupg
+        state: present
+
+    # --- gh CLI (official apt repo) ---
+    - name: Add gh CLI apt keyring
+      ansible.builtin.get_url:
+        url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+        dest: /usr/share/keyrings/githubcli-archive-keyring.gpg
+        mode: "0644"
+
+    - name: Add gh CLI apt repo
+      ansible.builtin.apt_repository:
+        filename: github-cli
+        repo: >-
+          deb [arch={{ ansible_architecture == 'aarch64' | ternary('arm64', 'amd64') }}
+          signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg]
+          https://cli.github.com/packages stable main
+        state: present
+
+    - name: Install gh CLI
+      ansible.builtin.apt:
+        name: gh
+        state: present
+        update_cache: true
+
+    # --- Node.js LTS (for Claude Code) ---
+    - name: Add NodeSource apt repo
+      ansible.builtin.shell: |
+        curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
+      args:
+        creates: /etc/apt/sources.list.d/nodesource.list
+
+    - name: Install Node.js
+      ansible.builtin.apt:
+        name: nodejs
+        state: present
+        update_cache: true
+
+    - name: Install Claude Code CLI
+      ansible.builtin.npm:
+        name: "@anthropic-ai/claude-code"
+        global: true
+        state: present
+
+    # --- Tailscale (secure remote access from phone, no exposed SSH) ---
+    - name: Add Tailscale apt keyring
+      ansible.builtin.get_url:
+        url: https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg
+        dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+        mode: "0644"
+
+    - name: Add Tailscale apt repo list
+      ansible.builtin.get_url:
+        url: https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list
+        dest: /etc/apt/sources.list.d/tailscale.list
+        mode: "0644"
+
+    - name: Install Tailscale
+      ansible.builtin.apt:
+        name: tailscale
+        state: present
+        update_cache: true
+
+    - name: Enable tailscaled
+      ansible.builtin.service:
+        name: tailscaled
+        state: started
+        enabled: true
+
+    - name: Join Tailscale network
+      ansible.builtin.command: >
+        tailscale up --authkey={{ tailscale_authkey }}
+        --hostname=codebox --ssh
+      no_log: true
+      register: ts_result
+      changed_when: "'Success' in ts_result.stdout or ts_result.rc == 0"
+
+    # --- Docker: add primary user to the docker group (no sudo needed) ---
+    - name: Add vm_user to docker group
+      ansible.builtin.user:
+        name: "{{ vm_user }}"
+        groups: docker
+        append: true
+
+    # --- tmux: auto-attach on login instead of a plain shell ---
+    - name: Configure tmux auto-attach on login
+      ansible.builtin.blockinfile:
+        path: "/home/{{ vm_user }}/.bashrc"
+        marker: "# {mark} ANSIBLE MANAGED - tmux auto-attach"
+        block: |
+          if [ -z "$TMUX" ] && [ -n "$SSH_CONNECTION" ]; then
+            tmux new -A -s main
+          fi
+
+    # --- SSH hardening: key-only auth ---
+    - name: Disable SSH password authentication
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: "PasswordAuthentication no"
+      notify: restart sshd
+
+    - name: Disable default MOTD scripts
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: "0644"
+      loop:
+        - /etc/update-motd.d/10-help-text
+        - /etc/update-motd.d/50-motd-news
+
+    - name: Configure dynamic MOTD script
+      ansible.builtin.copy:
+        dest: /etc/update-motd.d/01-custom
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          echo ""
+          echo "  codebox -- remote coding VM"
+          echo "  Hostname : $(hostname)"
+          echo "  IP       : $(hostname -I | awk '{print $1}')"
+          echo "  Uptime   : $(uptime -p)"
+          echo "  CPU Load : $(cut -d ' ' -f1 /proc/loadavg)"
+          echo "  Memory   : $(free -h | awk '/^Mem/ {print $3 \"/\" $2}')"
+          echo "  Disk     : $(df -h / | awk 'NR==2 {print $3 \"/\" $2 \" (\" $5 \" used)\"}')"
+          echo ""
+          echo "  Run 'claude login' once to authenticate Claude Code."
+          echo ""
+
+  handlers:
+    - name: restart sshd
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
+
+    - name: Reboot the VM
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        pre_reboot_delay: 5
+        post_reboot_delay: 15
+        test_command: whoami
+      listen: reboot_vm

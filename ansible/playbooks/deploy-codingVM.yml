@@ -13,6 +13,11 @@
   hosts: codingVM
   become: true
 
+  vars:
+    vm_user: jconder44
+    userName: "{{ vm_user }}"       # shared docker role expects this name
+    docker_expose_api: false        # keep docker on the socket only, no TCP
+
   roles:
     - common
     - docker
@@ -124,12 +129,7 @@
         global: true
         state: present
 
-    # --- Docker: add primary user to the docker group (no sudo needed) ---
-    - name: Add vm_user to docker group
-      ansible.builtin.user:
-        name: "{{ vm_user }}"
-        groups: docker
-        append: true
+    # Docker group membership is handled by the docker role (userName var).
 
     # --- tmux: auto-attach on login instead of a plain shell ---
     - name: Configure tmux auto-attach on login

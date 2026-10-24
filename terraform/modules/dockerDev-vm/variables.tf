@@ -20,8 +20,10 @@ variable "vm_gateway" {
 }
 
 variable "vm_vlan" {
-  description = "VLAN ID"
+  description = "VLAN ID (omit/null for untagged -- the main LAN on vmbr0 is untagged, not VLAN 5)"
   type        = number
+  default     = null
+  nullable    = true
 }
 
 variable "vm_cores" {

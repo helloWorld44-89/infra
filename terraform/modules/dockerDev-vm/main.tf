@@ -46,7 +46,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
   network_device {
     bridge  = "vmbr0"
     model   = "virtio"
-    vlan_id = var.vm_vlan
+    vlan_id = var.vm_vlan != null ? var.vm_vlan : null
   }
 
   initialization {

@@ -5,9 +5,9 @@
 # Claude Code from a phone (Termius+tmux or similar), with Docker
 # available for local testing.
 #
-# Required extra-vars:
-#   tailscale_authkey   -- Tailscale auth key (reusable, ephemeral
-#                           recommended) from the admin console
+# Reached remotely via the existing WireGuard tunnel into the LAN --
+# no separate VPN needed, this VM just sits on 192.168.5.44 like any
+# other host once you're on WireGuard.
 
 - name: Provision codebox (remote coding VM)
   hosts: codingVM
@@ -123,39 +123,6 @@
         name: "@anthropic-ai/claude-code"
         global: true
         state: present
-
-    # --- Tailscale (secure remote access from phone, no exposed SSH) ---
-    - name: Add Tailscale apt keyring
-      ansible.builtin.get_url:
-        url: https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg
-        dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
-        mode: "0644"
-
-    - name: Add Tailscale apt repo list
-      ansible.builtin.get_url:
-        url: https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list
-        dest: /etc/apt/sources.list.d/tailscale.list
-        mode: "0644"
-
-    - name: Install Tailscale
-      ansible.builtin.apt:
-        name: tailscale
-        state: present
-        update_cache: true
-
-    - name: Enable tailscaled
-      ansible.builtin.service:
-        name: tailscaled
-        state: started
-        enabled: true
-
-    - name: Join Tailscale network
-      ansible.builtin.command: >
-        tailscale up --authkey={{ tailscale_authkey }}
-        --hostname=codebox --ssh
-      no_log: true
-      register: ts_result
-      changed_when: "'Success' in ts_result.stdout or ts_result.rc == 0"
 
     # --- Docker: add primary user to the docker group (no sudo needed) ---
     - name: Add vm_user to docker group

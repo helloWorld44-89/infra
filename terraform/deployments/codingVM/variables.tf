@@ -27,7 +27,7 @@ variable "vm_password" {
 variable "vm_ip" {
   description = "Static IP with CIDR e.g. 192.168.5.46/24"
   type        = string
-  default     = "192.168.5.46/24"
+  default     = "192.168.5.44/24"
 }
 
 variable "vm_gateway" {

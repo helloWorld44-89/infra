@@ -5,7 +5,7 @@ module "codingVM" {
   vm_gateway     = var.vm_gateway
   vm_vlan        = var.vm_vlan
   ssh_public_key = var.ssh_public_key
-  vm_user        = var.vm_user
+  vm_user        = var.vm_username
   vm_password    = var.vm_password
   vm_count       = var.vm_count
   prox_node      = var.prox_node

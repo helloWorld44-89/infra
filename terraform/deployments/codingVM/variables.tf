@@ -14,7 +14,7 @@ variable "ssh_public_key" {
   type        = string
 }
 
-variable "vm_user" {
+variable "vm_username" {
   type      = string
   sensitive = true
 }

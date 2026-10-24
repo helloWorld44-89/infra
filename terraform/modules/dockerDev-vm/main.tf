@@ -73,6 +73,6 @@ resource "proxmox_virtual_environment_vm" "vm" {
     enabled = true
   }
   stop_on_destroy = true
-  timeout_create = 20
+  timeout_create = 300
   on_boot = true
 }

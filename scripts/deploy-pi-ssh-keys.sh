@@ -87,14 +87,15 @@ for USER in "${!PUBKEYS[@]}"; do
   echo "  Configured $USER"
 done
 
-# Harden SSH (key-only) — safe to run multiple times
+# SSH config — safe to run multiple times. Password auth is intentionally left ON for
+# these two Pi-hole hosts (explicit user request); don't flip this back to "no" here.
 cat > /etc/ssh/sshd_config.d/99-hermes-agent.conf <<'SSH_EOF'
-PasswordAuthentication no
+PasswordAuthentication yes
 PubkeyAuthentication yes
 ChallengeResponseAuthentication no
 SSH_EOF
 systemctl restart ssh
-echo "  SSH hardened + restarted"
+echo "  SSH configured + restarted"
 REMOTE_EOF
 
   echo "=== Done: $HOST ==="

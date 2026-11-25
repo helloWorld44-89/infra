@@ -17,7 +17,7 @@
     agent_keys:
       hermes-infra:
         key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKfQefd8YPiP938Un/aseJwCSuppifsbmVv2djk/A6Fm hermes-infra"
-        sudo: "ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/systemctl, /usr/bin/kubectl, /usr/local/bin/kubectl, /usr/bin/helm, /usr/bin/ansible-playbook, /usr/sbin/reboot, /usr/bin/journalctl, /usr/bin/ceph, /usr/sbin/qm, /usr/sbin/pvesh"
+        sudo: "ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/systemctl, /usr/bin/kubectl, /usr/local/bin/kubectl, /usr/bin/helm, /usr/bin/ansible-playbook, /usr/sbin/reboot, /usr/bin/journalctl, /usr/bin/ceph, /usr/sbin/qm, /usr/sbin/pvesh, /usr/sbin/smartctl"
       hermes-security:
         key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIlReiyhrhKHi41witTK7LUrmJOQX5z1WD3M3vgIf92h hermes-security"
         sudo: "ALL=(ALL) NOPASSWD: /usr/bin/journalctl, /bin/cat, /usr/bin/tail, /usr/bin/last, /usr/sbin/ausearch, /usr/sbin/aureport"

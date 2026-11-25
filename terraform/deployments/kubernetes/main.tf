@@ -3,7 +3,7 @@ module "k3sWorkers" {
   vm_name        = "prod-k3s"
   vm_ip          = var.vm_ip
   vm_gateway     = var.vm_gateway
-  vm_vlan        = var.vm_vlan
+  vm_vlan        = 1
   ssh_public_key = var.ssh_public_key
   vm_count       = var.vm_count
   vm_cores     = 4
@@ -18,11 +18,11 @@ module "k3sMaster" {
   vm_name        = "prod-k3s-master"
   vm_ip          = ["192.168.5.65/24"]
   vm_gateway     = var.vm_gateway
-  vm_vlan        = var.vm_vlan
+  vm_vlan        = 0
   ssh_public_key = var.ssh_public_key
   vm_count       = 1
-  vm_cores     = 2
-  vm_memory    = 4096
+  vm_cores     = 4
+  vm_memory    = 8192
   vm_disk_size = 32
   prox_node = ["Balerion","Smaug","toothless"]
   vm_user = var.vm_user

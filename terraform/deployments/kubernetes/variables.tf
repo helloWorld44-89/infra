@@ -24,10 +24,6 @@ variable "vm_gateway" {
   type        = string
 }
 
-variable "vm_vlan" {
-  description = "VLAN ID"
-  type        = number
-}
 variable "vm_count" {
   description = "Number of VMs to create"
   type        = number

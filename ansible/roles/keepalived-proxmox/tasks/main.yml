@@ -42,3 +42,36 @@
 - name: Show VIP status
   ansible.builtin.debug:
     msg: "{{ inventory_hostname }} ({{ keepalived_state }}) — VIP present: {{ keepalived_vip.split('/')[0] in vip_check.stdout }}"
+
+# pveproxy's listening port (8006) isn't configurable — no NPM/reverse proxy anymore,
+# so redirect 443->8006 locally on every node instead. A NAT REDIRECT matches on
+# destination port alone, not on which IP currently holds it, so this works correctly
+# on whichever node the VIP fails over to without any extra logic. Still shows
+# pveproxy's own self-signed per-node cert in the browser — this only removes the
+# ":8006" from the URL, it doesn't add a trusted cert.
+- name: Pre-seed debconf so iptables-persistent's install doesn't prompt interactively
+  ansible.builtin.debconf:
+    name: iptables-persistent
+    question: "iptables-persistent/autosave_{{ item }}"
+    value: "true"
+    vtype: boolean
+  loop: [v4, v6]
+  become: true
+
+- name: Install iptables-persistent (for the 443->8006 redirect to survive reboots)
+  ansible.builtin.apt:
+    name: iptables-persistent
+    state: present
+  become: true
+
+- name: Redirect 443 -> 8006 locally (pveproxy's fixed port) for the GUI VIP
+  ansible.builtin.iptables:
+    table: nat
+    chain: PREROUTING
+    protocol: tcp
+    destination_port: "443"
+    jump: REDIRECT
+    to_ports: "8006"
+    comment: "proxmox GUI VIP: 443 -> pveproxy's 8006"
+  become: true
+  notify: save iptables rules

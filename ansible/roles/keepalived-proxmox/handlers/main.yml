@@ -4,3 +4,7 @@
     name: keepalived
     state: restarted
   become: true
+
+- name: save iptables rules
+  ansible.builtin.shell: netfilter-persistent save
+  become: true

@@ -1,0 +1,7 @@
+---
+- name: Deploy keepalived for Proxmox GUI VIP (192.168.5.54)
+  hosts: proxmox
+  remote_user: hermes-infra
+  become: true
+  roles:
+    - keepalived-proxmox

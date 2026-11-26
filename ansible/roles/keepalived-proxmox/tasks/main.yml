@@ -1,0 +1,44 @@
+---
+# Install and configure keepalived for Proxmox web GUI VIP failover
+# All 3 nodes present the same cluster-wide GUI, so any node answering is fine —
+# this just removes the need to remember/switch between node IPs when one is down.
+
+- name: Install keepalived
+  ansible.builtin.apt:
+    name: keepalived
+    state: present
+    update_cache: true
+  become: true
+
+- name: Determine keepalived state/priority per host
+  ansible.builtin.set_fact:
+    keepalived_state: "{{ 'MASTER' if inventory_hostname == 'Balerion' else 'BACKUP' }}"
+    keepalived_priority: >-
+      {{ 101 if inventory_hostname == 'Balerion'
+         else (100 if inventory_hostname == 'toothless' else 99) }}
+
+- name: Render keepalived.conf
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    mode: "0644"
+  become: true
+  notify: restart keepalived
+
+- name: Enable and start keepalived
+  ansible.builtin.systemd:
+    name: keepalived
+    enabled: true
+    state: started
+  become: true
+
+- name: Verify VIP is assigned on master
+  ansible.builtin.command: ip addr show {{ keepalived_interface }}
+  register: vip_check
+  become: true
+  changed_when: false
+  failed_when: false
+
+- name: Show VIP status
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }} ({{ keepalived_state }}) — VIP present: {{ keepalived_vip.split('/')[0] in vip_check.stdout }}"

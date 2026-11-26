@@ -1,0 +1,9 @@
+---
+# keepalived-proxmox role variables
+keepalived_vip: "192.168.5.54/24"
+keepalived_interface: "vmbr0"   # same bridge on all 3 nodes, unlike the Pi-hole case
+keepalived_virtual_router_id: 52   # 51 is already used by keepalived-pihole on a different VLAN segment; keep distinct
+keepalived_advert_int: 1
+keepalived_auth_type: "PASS"
+keepalived_auth_pass: "proxmox88"   # 8-char shared secret
+keepalived_instance_name: "VI_PROXMOX"
